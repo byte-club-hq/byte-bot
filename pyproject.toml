@@ -1,0 +1,22 @@
+[project]
+name = "byte-bot"
+version = "0.1.0"
+description = "A helpful Discord bot for the Byte Club Community"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    # Dependencies should be added here, followed by running `uv lock` to update the lock file.
+    "discord.py",
+    "dotenv",
+    "ruff",
+]
+
+# Ruff is a formatting plugin that can be used with various editors and tools. 
+# The configuration below sets some options for Ruff
+[tool.ruff]
+ignore-init-module-imports = true # Prevents linter from complaining about imports in __init__.py files
+line-length = 120 # Sets the maximum line length to 120 characters.
+
+[tool.ruff.format]
+preview = true
+quote-style = "preserve"

@@ -41,15 +41,18 @@ To get started with developing Byte Bot locally, follow these steps:
        Always keep your token secure and never share it with anyone.
 7. In the developer portal `Bot` section enable the `Server Members` and `Message Content` intents and click save
    changes.
-8. In the developer portal `Installation` section, only check the `Guild Install` installation context and then copy the
-   generated invite link to add the bot to your server.
-    1. Paste this link into your browser and choose the server you want to add the bot to. You must have the
+8. In the developer portal `Installation` section, only check the `Guild Install`, ensuring to uncheck the `User Install`.
+9. In the `Default Install Settings` section, ensure you have the following Scopes and permissions:
+   - Scopes: `applications.commands` and `bot`
+   - Permissions: `Add Reactions`, `Attach Files`, `Embed Links`, `Manage Messages`, `Manage Threads`, `Read Message History`, `Send Messages`, `Send Messages in Threads`, `Use External Emojis`, `View Channels`
+10. In the `Install Link` section ensure `Discord Provided Link` is selected. Copy the URL
+    1. Copy and Paste this link into your browser and choose the server you want to add the bot to. You must have the
        `Manage Server` permission in that server to be able to add the bot.
-       9Run the bot using the following command:
+11. Run the bot using the following command:
    ```bash
    uv run python -m byte_bot
    ```
-    - At this point the bot should appear online in the server you invited it to!
+   - At this point the bot should appear online in the server you invited it to!
 
 ### Optional/Recommended plugins and extensions
 

@@ -35,6 +35,9 @@ class ByteBot(commands.Bot):
         # TODO: Load cogs from the "cogs" directory. This allows us to modularize our commands and event listeners.
         # for cog in SOME_LIST_OF_COGS:
         #     await self.load_extension(cog)
+        # Add each implemented COG in the list
+        for cog in ["ping", "about", "rules"]:
+            await self.load_extension(f"byte_bot.cogs.{cog}")
 
         synced = await self.tree.sync()  # Syncs the application commands (slash commands) with Discord.
         log.info(f"Added main cog commands... Synced {len(synced)} commands")

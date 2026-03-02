@@ -2,6 +2,7 @@ import logging
 
 import discord
 from discord.ext import commands
+import os
 
 log = logging.getLogger(__name__)
 
@@ -35,6 +36,13 @@ class ByteBot(commands.Bot):
         # TODO: Load cogs from the "cogs" directory. This allows us to modularize our commands and event listeners.
         # for cog in SOME_LIST_OF_COGS:
         #     await self.load_extension(cog)
+
+        # for every file under cogs, load the cog as an extension
+        for filename in os.listdir('./byte_bot/cogs'):
+            print(f'filename = {filename}')
+            if filename.endswith('.py') and filename != "__init__.py":
+                await self.load_extension(f'byte_bot.cogs.{filename[:-3]}')
+        
 
         synced = await self.tree.sync()  # Syncs the application commands (slash commands) with Discord.
         log.info(f"Added main cog commands... Synced {len(synced)} commands")

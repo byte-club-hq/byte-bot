@@ -32,9 +32,16 @@ class ByteBot(commands.Bot):
     async def setup_hook(self) -> None:
         """Called when the bot is ready to load cogs and interact with the API."""
 
-        # TODO: Load cogs from the "cogs" directory. This allows us to modularize our commands and event listeners.
-        # for cog in SOME_LIST_OF_COGS:
-        #     await self.load_extension(cog)
+        # Load cogs from the cogs directory
+        cogs_to_load = [
+            "byte_bot.cogs.utilities",
+        ]
+        
+        for cog in cogs_to_load:
+            try:
+                await self.load_extension(cog)
+            except Exception as e:
+                log.error(f"Failed to load cog {cog}: {e}")
 
         synced = await self.tree.sync()  # Syncs the application commands (slash commands) with Discord.
         log.info(f"Added main cog commands... Synced {len(synced)} commands")

@@ -9,9 +9,10 @@ class leetcode(commands.Cog):
     async def on_ready(self):
         print("Bytebot is online")
     
-    @commands.command()
+    @commands.hybrid_command()
     async def leetcode(self, ctx):
-        await ctx.send("Hello")
+        ### TODO add all the code to take in leetcode params and call a leetcode api
+        await ctx.send("Hello from the leetcode function")
     
 async def setup(bot):
     await bot.add_cog(leetcode(bot))

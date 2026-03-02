@@ -45,7 +45,7 @@ The intended channel for discourse and questions about the project is the Discor
 We ask you to investigate carefully, collect information and describe the issue in detail in your report. Please complete the following steps in advance:
 
 - Make sure that you are using the latest version.
-- Determine if your bug is really a bug and not an error on your side e.g. using incompatible environment components/versions (Make sure that you have read the [documentation]().
+- Determine if your bug is really a bug and not an error on your side e.g. using incompatible environment components/versions (Make sure that you have read the [documentation](#improving-the-documentation)).
 - To see if other users have experienced (and potentially already solved) the same issue you are having, check if there is not already a bug report existing for your bug or error in the [bug tracker](https://github.com/byte-club-hq/byte-bot/issues?q=label%3Abug).
 - Also make sure to search the internet (including Stack Overflow) to see if users outside of the GitHub community have discussed the issue.
 - Collect information about the bug:
@@ -113,7 +113,7 @@ Docstrings are meant to be maintained in parallel with the code, but if you noti
 In a large team, code is read 10x more often than it is written. We prioritize readability over cleverness.
 - **Code should be mostly self documenting:** Under 95% of circumstances, it should be clear what your code does by looking at it.
   You can accomplish this by using descriptive and precise variable names, conserving [cyclomatic complexity](https://en.wikipedia.org/wiki/Cyclomatic_complexity) and proper seperation of concerns.
-- **Comments should be used when intent is unclear:** Even if your code itself is readable, you should include comments especially when your code itself is readable but the reasoning for it is invisible (i.e. workarounds/hacks, magic numbers, regex, performance optimizations, etc.).
+- **Comments should be used when intent is unclear:** Even if your code itself is readable, you should include comments especially when its reasoning is invisible (i.e. workarounds/hacks, magic numbers, regex, performance optimizations, etc.).
 - **Limit vagueness to idiomatically universal contexts:** For extremely limited scopes like loop counters (`for i in range(10)` where `i` is short for `index`) or list comprehensions, mathematical formulas or coordinates (`x`, `y`, & `z` as coordinate variables), and lambda functions, it actually benefits readability to be vague with variables names.
 
 ### Commit Messages

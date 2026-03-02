@@ -1,7 +1,7 @@
 # Contributing to byte-bot
 
 Thank you for considering contributing!
-This is a project specifically geared toward collaboration and learning, so contributions of all kinds are welcome.
+This is a project specifically geared toward collaboration and learning, so human derived contributions of all kinds are welcome.
 
 ## Code of Conduct
 
@@ -73,8 +73,6 @@ Once it's filed:
 - A team member will try to reproduce the issue with your provided steps. If there are no reproduction steps or no obvious way to reproduce the issue, the team will ask you for those steps and mark the issue as `needs-repro`. Bugs with the `needs-repro` tag will not be addressed until they are reproduced.
 - If the team is able to reproduce the issue, it will be marked `needs-fix`, as well as possibly other tags (such as `critical`), and the issue will be left to be [implemented by someone](#your-first-code-contribution).
 
-<!-- You might want to create an issue template for bugs and errors that can be used as a guide and that defines the structure of the information to be included. If you do so, reference it here in the description. -->
-
 <!-- omit in toc -->
 #### Enhancement Suggestions
 
@@ -114,7 +112,7 @@ In a large team, code is read 10x more often than it is written. We prioritize r
 - **Code should be mostly self documenting:** Under 95% of circumstances, it should be clear what your code does by looking at it.
   You can accomplish this by using descriptive and precise variable names, conserving [cyclomatic complexity](https://en.wikipedia.org/wiki/Cyclomatic_complexity) and proper seperation of concerns.
 - **Comments should be used when intent is unclear:** Even if your code itself is readable, you should include comments especially when its reasoning is invisible (i.e. workarounds/hacks, magic numbers, regex, performance optimizations, etc.).
-- **Limit vagueness to idiomatically universal contexts:** For extremely limited scopes like loop counters (`for i in range(10)` where `i` is short for `index`) or list comprehensions, mathematical formulas or coordinates (`x`, `y`, & `z` as coordinate variables), and lambda functions, it actually benefits readability to be vague with variables names.
+- **Limit vagueness to idiomatically universal contexts:** For extremely limited scopes like loop counters (`for i in range(10)` where `i` is short for `index`) or list comprehensions, mathematical formulas or coordinates (`x`, `y`, & `z` as coordinate variables), and lambda functions, it may actually benefit code readability to be vague with variable names.
 
 ### Commit Messages
 In general, we try to adhere to the [Conventional Commit Specification](https://www.conventionalcommits.org/en/v1.0.0/). Please refer to it for more detail.

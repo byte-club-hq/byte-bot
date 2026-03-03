@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import logging
 
 import discord
@@ -29,12 +30,16 @@ class ByteBot(commands.Bot):
             allowed_mentions=discord.AllowedMentions(everyone=False),
         )
 
+        # Recording start time for uptime tracking
+        self.start_time = datetime.now(timezone.utc)
+
     async def setup_hook(self) -> None:
         """Called when the bot is ready to load cogs and interact with the API."""
 
         # TODO: Load cogs from the "cogs" directory. This allows us to modularize our commands and event listeners.
         # for cog in SOME_LIST_OF_COGS:
         #     await self.load_extension(cog)
+        await self.load_extension("byte_bot.cogs.utilities") # Load the Utilities Cog.
 
         synced = await self.tree.sync()  # Syncs the application commands (slash commands) with Discord.
         log.info(f"Added main cog commands... Synced {len(synced)} commands")

@@ -46,11 +46,26 @@ class Utilities(commands.Cog):
                 await self.bot.reload_extension(extension_name)
                 results.append(f"**{cog}** reloaded successfully.")
             except commands.ExtensionNotFound:
+                logger.exception(
+                    f"Failed to reload the {cog} cog - ExtensionNotFound"
+                )
                 results.append(f" **{cog}** not found.")
-            except commands.ExtensionFailed as e:
-                results.append(f" **{cog}** failed: {e}")
+            except commands.ExtensionFailed:
+                logger.exception(
+                    f"Failed to reload the {cog} cog due to ExtensionFailed"
+                )
+                results.append(f" **{cog}** failed")
             except commands.ExtensionNotLoaded:
+                logger.exception(
+                    f"Failed to reload the {cog} cog - ExtensionNotLoaded"
+                )
                 results.append(f"**{cog}** is not loaded yet.")
+            except Exception:
+                #if there is unexpected error so this will run 
+                logger.exception(
+                    f"Unexpected error while reloading the {cog} cog"
+                )
+                results.append(f"❌ **{cog}** unexpected error. Check logs.")
 
         # create an embed to display the results
         embed = discord.Embed(title="🔄 Cog Reload Report", color=discord.Color.blue())

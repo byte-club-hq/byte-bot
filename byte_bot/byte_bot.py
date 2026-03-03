@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import logging
-
+from pathlib import Path
 import discord
 from discord.ext import commands
 
@@ -35,11 +35,27 @@ class ByteBot(commands.Bot):
 
     async def setup_hook(self) -> None:
         """Called when the bot is ready to load cogs and interact with the API."""
+        
+        # Path to the /cogs directory (relative to this file)
+        cogs_path = Path(__file__).parent / "cogs"
+        
+        # Recursively find all Python files inside /cogs
+        for file in sorted(cogs_path.rglob("*.py")):
+            
+            if file.name == "__init__.py" : 
+                continue
 
-        # TODO: Load cogs from the "cogs" directory. This allows us to modularize our commands and event listeners.
-        # for cog in SOME_LIST_OF_COGS:
-        #     await self.load_extension(cog)
-        await self.load_extension("byte_bot.cogs.utilities") # Load the Utilities Cog.
+            # Convert file path to a module path:
+            # Example:
+            # subfolder/ping.py -> subfolder.ping
+            relative = file.relative_to(cogs_path).with_suffix("")
+            module = ".".join(relative.parts)
+            
+            # Load the extension dynamically
+            # Final example:
+            # byte_bot.cogs.subfolder.ping
+            await self.load_extension(f"byte_bot.cogs.{module}")
 
-        synced = await self.tree.sync()  # Syncs the application commands (slash commands) with Discord.
+        # Syncs the application commands (slash commands) with Discord.
+        synced = await self.tree.sync()
         log.info(f"Added main cog commands... Synced {len(synced)} commands")

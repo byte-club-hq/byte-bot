@@ -31,7 +31,7 @@ To get started with developing Byte Bot locally, follow these steps:
     2. The `.env` file should look something like this:
          <!-- Please add new .env vars here as needed -->
          ```bash
-         DISCORD_BOT_TOKEN=your_discord_bot_token_here
+         DISCORD_TOKEN=your_discord_bot_token_here
          ```
 
     3. **WARNING**: This token is unique to YOU and YOU ONLY. DO NOT commit this token to the repo, or you risk exposing

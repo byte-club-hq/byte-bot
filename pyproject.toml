@@ -9,6 +9,7 @@ dependencies = [
     "discord.py",
     "dotenv",
     "ruff",
+    "python-jobspy",
 ]
 
 # Ruff is a formatting plugin that can be used with various editors and tools. 

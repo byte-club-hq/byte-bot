@@ -8,21 +8,21 @@ from typing import List
 
 @dataclass
 class SubmissionStat:
-    difficulty: str
-    count: int
+    difficulty: str | None
+    count: int | None
 
 @dataclass
 class Profile:
-    real_name: str
-    ranking: int
-    reputation: int
-    country: str
+    real_name: str | None
+    ranking: int | None
+    reputation: int | None
+    country: str | None
 
 @dataclass
 class LeetCodeUser:
-    username: str
-    profile: Profile
-    submissions: List[SubmissionStat]
+    username: str | None
+    profile: Profile | None
+    submissions: List[SubmissionStat] | None
 
 class leetcode(commands.Cog):
     def __init__(self, bot):
@@ -73,9 +73,12 @@ class leetcode(commands.Cog):
 
         data = response.json()
 
-        # Parse the data
-        user_data = data["data"]["matchedUser"]
+        # First check if that users profile exists
+        if not (user_data := data["data"].get("matchedUser")):
+            await ctx.send("Failed to find a leetcode user with that username", ephemeral=True)
+            return
 
+        # Parse the data
         profile_data = user_data["profile"]
         submission_data = user_data["submitStats"]["acSubmissionNum"]
 
@@ -102,9 +105,11 @@ class leetcode(commands.Cog):
         
         # Create a discord Embed object to display
         embed = discord.Embed()
-        embed.add_field(name="User", value=f"{user}")
+        embed.add_field(name="User", value=user.username, inline=False)
+        embed.add_field(name="Profile", value=user.profile, inline=False)
+        embed.add_field(name="Submissions", value=user.submissions, inline=False)
 
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, ephemeral=True)
 
     
 async def setup(bot):

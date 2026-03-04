@@ -74,31 +74,31 @@ class leetcode(commands.Cog):
         data = response.json()
 
         # First check if that users profile exists
-        if not (user_data := data["data"].get("matchedUser")):
+        if not (user_data := data.get("data").get("matchedUser")):
             await ctx.send("Failed to find a leetcode user with that username", ephemeral=True)
             return
 
         # Parse the data
-        profile_data = user_data["profile"]
-        submission_data = user_data["submitStats"]["acSubmissionNum"]
+        profile_data = user_data.get("profile")
+        submission_data = user_data.get("submitStats").get("acSubmissionNum")
 
         profile = Profile(
-            real_name=profile_data["realName"],
-            ranking=profile_data["ranking"],
-            reputation=profile_data["reputation"],
-            country=profile_data["countryName"],
+            real_name=profile_data.get("realName"),
+            ranking=profile_data.get("ranking"),
+            reputation=profile_data.get("reputation"),
+            country=profile_data.get("countryName"),
         )
 
         submissions = [
             SubmissionStat(
-                difficulty=stat["difficulty"],
-                count=stat["count"]
+                difficulty=stat.get("difficulty"),
+                count=stat.get("count")
             )
             for stat in submission_data
         ]
 
         user = LeetCodeUser(
-            username=user_data["username"],
+            username=user_data.get("username"),
             profile=profile,
             submissions=submissions
         )

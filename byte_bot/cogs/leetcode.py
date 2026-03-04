@@ -105,7 +105,6 @@ class leetcode(commands.Cog):
         
         # Create a discord Embed object to display
         embed = discord.Embed()
-        submissionEmbed = discord.Embed()
 
         embed.add_field(name="User", value=user.username, inline=False)
 

@@ -8,6 +8,7 @@ dependencies = [
     # Dependencies should be added here, followed by running `uv lock` to update the lock file.
     "discord.py",
     "dotenv",
+    "requests>=2.32.5",
     "ruff",
 ]
 

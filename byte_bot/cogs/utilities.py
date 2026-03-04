@@ -76,7 +76,7 @@ class Utilities(commands.Cog):
         embed.add_field(name="⏱️ Uptime", value=formatted_uptime, inline=True)
         embed.add_field(name="👥 Users", value=users, inline=True)
         embed.add_field(name="🔗 Repository", value=f"[GitHub Repository]({repo_link}) | 💻 v{version}", inline=False)
-        embed.set_footer(text="Use /help to explore commands • Made with ❤️ by Byte Club")
+        embed.set_footer(text="Use / to explore commands • Made with ❤️ by Byte Club")
     
         if ctx.interaction:
             await ctx.interaction.response.send_message(embed=embed, ephemeral=True)

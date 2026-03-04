@@ -105,9 +105,18 @@ class leetcode(commands.Cog):
         
         # Create a discord Embed object to display
         embed = discord.Embed()
+        submissionEmbed = discord.Embed()
+
         embed.add_field(name="User", value=user.username, inline=False)
-        embed.add_field(name="Profile", value=user.profile, inline=False)
-        embed.add_field(name="Submissions", value=user.submissions, inline=False)
+
+        embed.add_field(name="Profile", value=user.profile.real_name, inline=False)
+        embed.add_field(name="Ranking", value=user.profile.ranking, inline=True)
+        embed.add_field(name="Reputation", value=user.profile.reputation, inline=True)
+
+        embed.add_field(name="Submissions", value="Total Problems solved 🎉", inline=False)
+
+        for stat in submissions:
+            embed.add_field(name=f"{stat.difficulty}", value=f"{stat.count}", inline=True)
 
         await ctx.send(embed=embed, ephemeral=True)
 

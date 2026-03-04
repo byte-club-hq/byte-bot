@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import logging
 from pathlib import Path
 import discord
@@ -28,6 +29,9 @@ class ByteBot(commands.Bot):
             # Ensure bot doesn't accidentally ping everyone
             allowed_mentions=discord.AllowedMentions(everyone=False),
         )
+
+        # Recording start time for uptime tracking
+        self.start_time = datetime.now(timezone.utc)
 
     async def setup_hook(self) -> None:
         """Called when the bot is ready to load cogs and interact with the API."""

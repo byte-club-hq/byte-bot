@@ -8,6 +8,7 @@ class InterviewPrompt(commands.Cog):
 
         # Sample question bank
         # Source: https://www.geeksforgeeks.org/python/python-interview-questions/
+        # Naive approach??
         self.questions = [
             "Is Python a compiled language or an interpreted language?",
             "How can you concatenate two lists in Python?",
@@ -28,6 +29,7 @@ class InterviewPrompt(commands.Cog):
         # Discord embed
         embed = discord.Embed(title="Ready for an interview?", description="Try answering these Python questions!", color=discord.Color.blue())
         embed.add_field(name="Question:", value=question, inline=False)
+        # Also naive, you'd have to scroll through the page to find the answer
         embed.add_field(name="Answer:", value="[Check answer](https://www.geeksforgeeks.org/python/python-interview-questions/)", inline=False)
         embed.set_footer(text="🤖Byte Club😸")
 

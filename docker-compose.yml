@@ -1,0 +1,7 @@
+services:
+  bot:
+    build: .
+    env_file:
+      - ".env"
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}

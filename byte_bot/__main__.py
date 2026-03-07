@@ -1,25 +1,23 @@
 import logging
-from os import environ
-
-from dotenv import load_dotenv
 
 from byte_bot.byte_bot import ByteBot
+from byte_bot.config import Config
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 
 def main():
-    if not (token := environ.get("DISCORD_TOKEN")):  # Ensure the token is set before proceeding
+    if not (token := Config.DISCORD_TOKEN):  # Ensure the token is set before proceeding
         raise ValueError("DISCORD_TOKEN environment variable is not set.")
-    bot = ByteBot()
+    if not Config.FEATURE_FORUM_CHANNEL_ID:
+        raise ValueError("FEATURE_FORUM_CHANNEL_ID environment variable is not set.")
+    bot = ByteBot(feature_forum_channel_id=Config.FEATURE_FORUM_CHANNEL_ID)
     bot.run(token)
 
 
 # Entry point for the application
 if __name__ == "__main__":
-    load_dotenv()
-
     try:
         log.debug("Starting byte-bot...")
         main()

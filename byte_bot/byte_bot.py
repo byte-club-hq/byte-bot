@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import logging
 from pathlib import Path
+
 import discord
 from discord.ext import commands
 
@@ -19,7 +20,7 @@ class ByteBot(commands.Bot):
     load cogs, etc.
     """
 
-    def __init__(self):
+    def __init__(self, *, feature_forum_channel_id: int):
         super().__init__(
             intents=INTENTS,
             # Legacy way to run commands against the bot. (Doesn't include slash commands)
@@ -30,6 +31,7 @@ class ByteBot(commands.Bot):
             allowed_mentions=discord.AllowedMentions(everyone=False),
         )
 
+        self.feature_forum_channel_id = feature_forum_channel_id
         # Recording start time for uptime tracking
         self.start_time = datetime.now(timezone.utc)
 

@@ -52,7 +52,10 @@ class FeatureSuggest(commands.Cog):
         Returns: None
         """
         if ctx.interaction:
-            await ctx.interaction.response.send_message(message, ephemeral=True)
+            try:
+                await ctx.interaction.response.send_message(message, ephemeral=True)
+            except discord.InteractionResponded:
+                await ctx.interaction.followup.send(message, ephemeral=True)
         else:
             try:
                 await ctx.author.send(message)
@@ -108,6 +111,7 @@ class FeatureSuggest(commands.Cog):
         
         member = ctx.author
         avatar = getattr(member, "guild_avatar", None) or member.avatar
+        icon_url = avatar.url if avatar else None
         feature_title = title
         feature_summary = summary      
 
@@ -118,7 +122,7 @@ class FeatureSuggest(commands.Cog):
         )
         embed.add_field(name="Title", value=f"{feature_title}", inline=False)
         embed.add_field(name="Summary", value=f"{feature_summary}", inline=False)
-        embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=avatar.url)
+        embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=icon_url)
 
         # --- Send embed to forum thread ---
         try:
@@ -132,6 +136,9 @@ class FeatureSuggest(commands.Cog):
             
                 # --- Send confirmation to the user ---
                 await self._reply(ctx, "✅ Your feature suggestion has been submitted!")
+            else:
+                logger.error(f"Channel {self.feature_forum_channel_id} is not a ForumChannel.")
+                await self._reply(ctx, "❌ Feature suggestions channel is misconfigured.")
         except Exception as e:
             logger.error(f"Failed to send embed: {e}")
             await self._reply(ctx, "❌ Failed to submit your feature suggestion. Please check bot permissions.")
@@ -181,9 +188,10 @@ class FeatureSuggest(commands.Cog):
         if thread.parent_id != forum_channel_id:
             return # ignore threads in other channels
         
-        if not thread.owner.bot: # someone manually created the thread
-            await thread.delete()
-            logger.info(f"Deleted thread {thread.name} because it was manually created.")
+        if thread.owner is None or  thread.owner.bot:
+            return 
+        await thread.delete() # someone manually created the thread
+        logger.info(f"Deleted thread {thread.name} because it was manually created.")
 
 async def setup(bot: ByteBot):
     await bot.add_cog(FeatureSuggest(bot))

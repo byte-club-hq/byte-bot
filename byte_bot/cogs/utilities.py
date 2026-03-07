@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timezone
 from logging import getLogger
 
@@ -51,7 +52,11 @@ class Utilities(commands.Cog):
         bot = self.bot.user.name
         repo_link = "https://github.com/byte-club-hq/byte-bot"
         version = "1.0.0"
-        ping = round(self.bot.latency * 1000)
+        latency = self.bot.latency
+        # In tests/offline startup,
+        # latency can be non-finite before a real gateway heartbeat
+        # Fall back to 0 so ping calculation stays safe.
+        ping = round(latency * 1000) if math.isfinite(latency) else 0
         status = self.bot.status
         users = len(self.bot.users)
 

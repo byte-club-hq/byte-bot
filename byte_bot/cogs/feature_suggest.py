@@ -89,10 +89,10 @@ class FeatureSuggest(commands.Cog):
                 fails due to permissions or other Discord API issues.
         """
         if len(title) > 256:
-            await ctx.send("The title cannot exceed 256 characters.")
+            await self._reply(ctx, "The title cannot exceed 256 characters.")
             return
         if len(summary) > 1024:
-            await ctx.send("The summary cannot exceed 1024 characters.")
+            await self._reply(ctx, "The summary cannot exceed 1024 characters.")
             return 
         
         if not ctx.interaction and len(title.split()) > 1 and not ctx.message.content.count('"') >= 2:

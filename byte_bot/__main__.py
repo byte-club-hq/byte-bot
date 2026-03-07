@@ -10,10 +10,16 @@ log = logging.getLogger(__name__)
 
 
 def main():
-    if not (token := environ.get("DISCORD_TOKEN")):  # Ensure the token is set before proceeding
-        raise ValueError("DISCORD_TOKEN environment variable is not set.")
-    bot = ByteBot()
-    bot.run(token)
+    required_env_vars = [
+        "DISCORD_TOKEN",
+        "FEATURE_FORUM_CHANNEL_ID"
+    ]
+    if missing_tokens:= [var for var in required_env_vars if not environ.get(var)]: # Ensure the token is set before proceeding
+        raise ValueError(f"Missing environment variables: {', '.join(missing_tokens)}")
+    bot = ByteBot(
+        feature_forum_channel_id=int(environ["FEATURE_FORUM_CHANNEL_ID"])
+    )
+    bot.run(environ["DISCORD_TOKEN"])
 
 
 # Entry point for the application

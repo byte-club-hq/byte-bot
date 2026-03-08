@@ -153,6 +153,7 @@ dependencies = [
     { name = "discord-py" },
     { name = "dotenv" },
     { name = "python-jobspy" },
+    { name = "requests" },
     { name = "ruff" },
 ]
 
@@ -161,6 +162,7 @@ requires-dist = [
     { name = "discord-py" },
     { name = "dotenv" },
     { name = "python-jobspy" },
+    { name = "requests", specifier = ">=2.32.5" },
     { name = "ruff" },
 ]
 

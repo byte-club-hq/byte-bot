@@ -1,4 +1,6 @@
+import pytest
 import discord.ext.test as dpytest
+
 import byte_bot.cogs.leetcode as leetcode_module
 
 class MockResponse:
@@ -38,15 +40,21 @@ def fake_post(url, json):
 
     return MockResponse({"data": {"matchedUser": None}})
 
-async def test_leetcode(bot, monkeypatch):
-    monkeypatch.setattr(leetcode_module.requests, "post", fake_post)
-
+@pytest.mark.asyncio
+async def test_leetcode_no_username(bot):
     await dpytest.message("+leetcode")
     assert dpytest.verify().message().contains().content("You must provide a leetcode username")
 
+@pytest.mark.asyncio
+async def test_leetcode_username(bot, monkeypatch):
+    monkeypatch.setattr(leetcode_module.requests, "post", fake_post)
     await dpytest.message("+leetcode niits")
-    msg = dpytest.get_message()
-    assert len(msg.embeds) == 1
+    resp = dpytest.get_message()
+    assert len(resp.embeds) == 1
 
+@pytest.mark.asyncio
+async def test_leetcode_unknown_username(bot, monkeypatch):
+    monkeypatch.setattr(leetcode_module.requests, "post", fake_post)
     await dpytest.message("+leetcode unknownuser")
     assert dpytest.verify().message().contains().content("Failed to find a leetcode user with that username")
+

@@ -12,6 +12,10 @@ INTENTS = discord.Intents.default()
 INTENTS.members = True
 INTENTS.message_content = True
 
+def health_check() -> dict[str, str]:
+    """Return a minimal app health payload for unit testing"""
+    return {"status": "ok", "service": "byte_bot"}
+
 
 class ByteBot(commands.Bot):
     """

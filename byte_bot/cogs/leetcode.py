@@ -37,7 +37,7 @@ class leetcode(commands.Cog):
     async def leetcode(self, ctx, profile: str = None):
 
         if profile is None:
-            await ctx.send("You must provide a leetcode username.\nUsage: `+leetcode <username>`")
+            await ctx.send("You must provide a leetcode username.\nUsage: `/leetcode <username>`", ephemeral=True)
             return
 
         url = "https://leetcode.com/graphql"

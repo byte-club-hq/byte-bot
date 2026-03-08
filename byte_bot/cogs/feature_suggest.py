@@ -97,14 +97,6 @@ class FeatureSuggest(commands.Cog):
         if len(summary) > 1024:
             await self._reply(ctx, "The summary cannot exceed 1024 characters.")
             return 
-        
-        if not ctx.interaction and len(title.split()) > 1 and not ctx.message.content.count('"') >= 2:
-            await self._reply(
-                ctx,
-                "⚠️ Multi-word titles must be wrapped in quotes:\n"
-                '+suggestfeature "My Feature Title" Your summary here.'
-            )
-            return
 
         channel = self.bot.get_channel(self.feature_forum_channel_id)
         if channel is None:

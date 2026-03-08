@@ -20,7 +20,7 @@ class ByteBot(commands.Bot):
     load cogs, etc.
     """
 
-    def __init__(self, *, feature_forum_channel_id: int):
+    def __init__(self, config):
         super().__init__(
             intents=INTENTS,
             # Legacy way to run commands against the bot. (Doesn't include slash commands)
@@ -31,7 +31,8 @@ class ByteBot(commands.Bot):
             allowed_mentions=discord.AllowedMentions(everyone=False),
         )
 
-        self.feature_forum_channel_id = feature_forum_channel_id
+        self.config = config
+        self.feature_forum_channel_id = self.config.FEATURE_FORUM_CHANNEL_ID
         # Recording start time for uptime tracking
         self.start_time = datetime.now(timezone.utc)
 

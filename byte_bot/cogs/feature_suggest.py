@@ -67,7 +67,7 @@ class FeatureSuggest(commands.Cog):
         title='The title of your feature. Example (text command use quotes): "Dark Mode"',
         summary='A short summary describing your feature.'
     )
-    async def suggestfeature(self, ctx: commands.Context, title: str, *, summary: str) -> None:
+    async def suggest_feature(self, ctx: commands.Context, title: str, *, summary: str) -> None:
         """
         Submit a feature suggestion to the forum channel.
 
@@ -99,29 +99,29 @@ class FeatureSuggest(commands.Cog):
             return 
         
         if not ctx.interaction and len(title.split()) > 1 and not ctx.message.content.count('"') >= 2:
-                return await self._reply(
-                    ctx,
-                    "⚠️ Multi-word titles must be wrapped in quotes:\n"
-                    '+suggestfeature "My Feature Title" Your summary here.'
-                )
+            await self._reply(
+                ctx,
+                "⚠️ Multi-word titles must be wrapped in quotes:\n"
+                '+suggestfeature "My Feature Title" Your summary here.'
+            )
+            return
 
         channel = self.bot.get_channel(self.feature_forum_channel_id)
         if channel is None:
-            return await self._reply(ctx, "❌ Could not find the forum channel.")
+            await self._reply(ctx, "❌ Could not find the forum channel.")
+            return
         
         member = ctx.author
         avatar = getattr(member, "guild_avatar", None) or member.avatar
-        icon_url = avatar.url if avatar else None
-        feature_title = title
-        feature_summary = summary      
+        icon_url = avatar.url if avatar else None     
 
         embed=discord.Embed(
             title="Feature Request",
             description="Allow community members to submit a feature request/suggestion.",
             color=discord.Color.brand_red(),
         )
-        embed.add_field(name="Title", value=f"{feature_title}", inline=False)
-        embed.add_field(name="Summary", value=f"{feature_summary}", inline=False)
+        embed.add_field(name="Title", value=f"{title}", inline=False)
+        embed.add_field(name="Summary", value=f"{summary}", inline=False)
         embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=icon_url)
 
         # --- Send embed to forum thread ---
@@ -139,8 +139,8 @@ class FeatureSuggest(commands.Cog):
             else:
                 logger.error(f"Channel {self.feature_forum_channel_id} is not a ForumChannel.")
                 await self._reply(ctx, "❌ Feature suggestions channel is misconfigured.")
-        except Exception as e:
-            logger.error(f"Failed to send embed: {e}")
+        except Exception:
+            logger.exception("Failed to send embed:\n")
             await self._reply(ctx, "❌ Failed to submit your feature suggestion. Please check bot permissions.")
      
     @commands.Cog.listener()
@@ -159,7 +159,7 @@ class FeatureSuggest(commands.Cog):
             None: Sends either an ephemeral message (slash command) or a DM
             (text command) to the user.
         """
-        if isinstance(error, commands.MissingRequiredArgument):
+        if isinstance(error, commands.MissingRequiredArgument) and ctx.command.name == "suggestfeature":
             message = (
                 "❌ You must provide both a **title** and a **summary**.\n\n"
                     "**How to use:**\n"
@@ -168,30 +168,6 @@ class FeatureSuggest(commands.Cog):
                     "Make sure to put quotes around multi-word titles for text commands!"
             )
             await self._reply(ctx, message)
-
-    @commands.Cog.listener()
-    async def on_thread_create(self, thread: discord.Thread):
-        """
-        Listen for newly created threads in the forum channel.
-
-        If a thread is manually created by a user (not the bot) in the 
-        feature forum channel, it will be deleted automatically to enforce
-        structured feature submissions.
-
-        Args:
-            thread (discord.Thread): The thread object that was created.
-
-        Returns:
-            None
-        """
-        forum_channel_id = self.bot.feature_forum_channel_id
-        if thread.parent_id != forum_channel_id:
-            return # ignore threads in other channels
-        
-        if thread.owner is None or  thread.owner.bot:
-            return 
-        await thread.delete() # someone manually created the thread
-        logger.info(f"Deleted thread {thread.name} because it was manually created.")
 
 async def setup(bot: ByteBot):
     await bot.add_cog(FeatureSuggest(bot))

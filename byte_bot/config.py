@@ -1,8 +1,6 @@
-import os
-from dotenv import load_dotenv
+from dataclasses import dataclass
 
-load_dotenv()
-
+@dataclass
 class Config:
-    DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
-    FEATURE_FORUM_CHANNEL_ID = int(os.environ["FEATURE_FORUM_CHANNEL_ID"]) if os.environ.get("FEATURE_FORUM_CHANNEL_ID") else None
+    DISCORD_TOKEN: str
+    FEATURE_FORUM_CHANNEL_ID: int

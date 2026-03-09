@@ -34,16 +34,22 @@ class leetcode(commands.Cog):
     
 
     @commands.hybrid_command()
-    async def leetcode(self, ctx, profile: str = None):
+    async def leetcode(self, ctx, command: str = None):
 
-        if profile is None:
-            await ctx.send("You must provide a leetcode username.\nUsage: `/leetcode <username>`", ephemeral=True)
+        if command is None:
+            await ctx.send("You must provide a leetcode username.\nUsage: `/leetcode profile <username>`\n\nAlternatively provide daily to obtain the daily leetcode problem\nUsage: `/leetcode daily`", ephemeral=True)
             return
 
         url = "https://leetcode.com/graphql"
 
+        input = command.split()
+
+        query = ""
+        
         # This is where the graphql query happens, we can also query for problems, found this documentation https://jacoblincool.github.io/LeetCode-Query/
-        query = """
+        match input[0]:
+            case 'profile':
+                query = """
                 query getUserProfile($username: String!) {
                 matchedUser(username: $username) {
                     username
@@ -62,62 +68,105 @@ class leetcode(commands.Cog):
                 }
                 }
                 """
+                variables = {
+                    "username": f"{input[1]}"
+                }
+                response = requests.post(
+                    url,
+                    json={"query": query, "variables": variables}
+                )
+
+                data = response.json()
+
+                # First check if that users profile exists
+                if not (user_data := data.get("data").get("matchedUser")):
+                    await ctx.send("Failed to find a leetcode user with that username", ephemeral=True)
+                    return
+
+                # Parse the data
+                profile_data = user_data.get("profile")
+                submission_data = user_data.get("submitStats").get("acSubmissionNum")
+
+                profile = Profile(
+                    real_name=profile_data.get("realName"),
+                    ranking=profile_data.get("ranking"),
+                    reputation=profile_data.get("reputation"),
+                    country=profile_data.get("countryName"),
+                )
+
+                submissions = [
+                    SubmissionStat(
+                        difficulty=stat.get("difficulty"),
+                        count=stat.get("count")
+                    )
+                    for stat in submission_data
+                ]
+
+                user = LeetCodeUser(
+                    username=user_data.get("username"),
+                    profile=profile,
+                    submissions=submissions
+                )
+                
+                # Create a discord Embed object to display
+                embed = discord.Embed()
+
+                embed.add_field(name="User", value=user.username, inline=False)
+
+                embed.add_field(name="Profile", value=user.profile.real_name, inline=False)
+                embed.add_field(name="Ranking", value=user.profile.ranking, inline=True)
+                embed.add_field(name="Reputation", value=user.profile.reputation, inline=True)
+
+                embed.add_field(name="Submissions", value="Total Problems solved 🎉", inline=False)
+
+                for stat in submissions:
+                    embed.add_field(name=f"{stat.difficulty}", value=f"{stat.count}", inline=True)
+
+                await ctx.send(embed=embed, ephemeral=True)
+
+            case 'daily':
+                query = """
+                query questionOfToday {
+                activeDailyCodingChallengeQuestion {
+                    date
+                    link
+                    question {
+                    title
+                    titleSlug
+                    difficulty
+                    acRate
+                    questionFrontendId
+                    }
+                }
+                }
+                """
+                variables = {
+                }
+                response = requests.post(
+                    url,
+                    json={"query": query, "variables": variables}
+                )
+
+                data = response.json()
+                # First check if that users profile exists
+                if not (problem_data := data.get("data").get("activeDailyCodingChallengeQuestion")):
+                    await ctx.send("Failed to find a daily leetcode problem", ephemeral=True)
+                    return
+
+                print(problem_data.get("question").get("title"))
+                print("https://leetcode.com" + (problem_data.get("link")))
+
+                embed = discord.Embed()
+                embed.add_field(name="Title", value=problem_data.get("question").get("title"), inline=False)
+                embed.add_field(name="Difficulty", value=problem_data.get("question").get("difficulty"), inline=False)
+                embed.add_field(name="Link", value="https://leetcode.com" + (problem_data.get("link")), inline=False)
+                await ctx.send(embed=embed, ephemeral=True)
+            case _:
+                print("Unknown command")
         
-        variables = {
-            "username": f"{profile}"
-        }
-        response = requests.post(
-            url,
-            json={"query": query, "variables": variables}
-        )
+                
 
-        data = response.json()
 
-        # First check if that users profile exists
-        if not (user_data := data.get("data").get("matchedUser")):
-            await ctx.send("Failed to find a leetcode user with that username", ephemeral=True)
-            return
-
-        # Parse the data
-        profile_data = user_data.get("profile")
-        submission_data = user_data.get("submitStats").get("acSubmissionNum")
-
-        profile = Profile(
-            real_name=profile_data.get("realName"),
-            ranking=profile_data.get("ranking"),
-            reputation=profile_data.get("reputation"),
-            country=profile_data.get("countryName"),
-        )
-
-        submissions = [
-            SubmissionStat(
-                difficulty=stat.get("difficulty"),
-                count=stat.get("count")
-            )
-            for stat in submission_data
-        ]
-
-        user = LeetCodeUser(
-            username=user_data.get("username"),
-            profile=profile,
-            submissions=submissions
-        )
-        
-        # Create a discord Embed object to display
-        embed = discord.Embed()
-
-        embed.add_field(name="User", value=user.username, inline=False)
-
-        embed.add_field(name="Profile", value=user.profile.real_name, inline=False)
-        embed.add_field(name="Ranking", value=user.profile.ranking, inline=True)
-        embed.add_field(name="Reputation", value=user.profile.reputation, inline=True)
-
-        embed.add_field(name="Submissions", value="Total Problems solved 🎉", inline=False)
-
-        for stat in submissions:
-            embed.add_field(name=f"{stat.difficulty}", value=f"{stat.count}", inline=True)
-
-        await ctx.send(embed=embed, ephemeral=True)
 
     
 async def setup(bot):

@@ -148,7 +148,7 @@ class leetcode(commands.Cog):
                 )
 
                 data = response.json()
-                # First check if that users profile exists
+                # Parse the daily challenge json
                 if not (problem_data := data.get("data").get("activeDailyCodingChallengeQuestion")):
                     await ctx.send("Failed to find a daily leetcode problem", ephemeral=True)
                     return

@@ -33,7 +33,6 @@ class leetcode(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         print("Bytebot is online")
-    
 
     @commands.hybrid_command()
     async def leetcodeprofile(self, ctx, profile: str = None):
@@ -104,20 +103,16 @@ class leetcode(commands.Cog):
         
         # Create a discord Embed object to display
         embed = discord.Embed()
-
         embed.add_field(name="User", value=user.username, inline=False)
-
         embed.add_field(name="Profile", value=user.profile.real_name, inline=False)
         embed.add_field(name="Ranking", value=user.profile.ranking, inline=True)
         embed.add_field(name="Reputation", value=user.profile.reputation, inline=True)
-
         embed.add_field(name="Submissions", value="Total Problems solved 🎉", inline=False)
 
         for stat in submissions:
             embed.add_field(name=f"{stat.difficulty}", value=f"{stat.count}", inline=True)
 
         await ctx.send(embed=embed, ephemeral=True)
-
 
     @commands.hybrid_command()
     async def leetcodedaily(self, ctx):
@@ -157,10 +152,7 @@ class leetcode(commands.Cog):
         await ctx.send(embed=embed, ephemeral=True)
 
 
-    @commands.hybrid_command(
-        name="leetcoderandom",
-        description="Get a random LeetCode problem by difficulty"
-        )
+    @commands.hybrid_command()
     async def leetcoderandom(self, ctx, difficulty: str = None):
         # Because filtering is no longer supported in the graphql endpoint I am querying the rest endpoint for all problems
         url = "https://leetcode.com/api/problems/all/"
@@ -169,9 +161,8 @@ class leetcode(commands.Cog):
             await ctx.send("You must provide a difficulty.\nUsage: `/leetcoderandom <difficulty>`\n", ephemeral=True)
             return
         
-        # Strip all the spaces and newlines from the input and convert it to all uppercase
+        # Strip all the spaces and newlines from the input and converts the first char to uppercase
         difficulty = re.sub(r"[\n\t\s]*", "", difficulty.lower().capitalize())
-                            
         if(difficulty != "Easy" and difficulty != "Medium" and difficulty != "Hard"):
             await ctx.send("Please enter easy, medium, or hard for the difficulty.\nUsage: `/leetcoderandom <difficulty>`\n", ephemeral=True)
             return

@@ -4,6 +4,7 @@ import requests
 import re
 import random
 from dataclasses import dataclass
+from typing import Literal
 from typing import List
 
 
@@ -25,7 +26,7 @@ class LeetCodeUser:
     profile: Profile | None
     submissions: List[SubmissionStat] | None
 
-class leetcode(commands.Cog):
+class LeetCode(commands.Cog):
     url = "https://leetcode.com/graphql"
     def __init__(self, bot):
         self.bot = bot
@@ -35,7 +36,7 @@ class leetcode(commands.Cog):
         print("Bytebot is online")
 
     @commands.hybrid_command()
-    async def leetcodeprofile(self, ctx, profile: str = None):
+    async def leetcode_profile(self, ctx, profile: str = None):
 
         if profile is None:
             await ctx.send("You must provide a leetcode username.\nUsage: `/leetcodeprofile <username>`\n", ephemeral=True)
@@ -115,7 +116,7 @@ class leetcode(commands.Cog):
         await ctx.send(embed=embed, ephemeral=True)
 
     @commands.hybrid_command()
-    async def leetcodedaily(self, ctx):
+    async def leetcode_daily(self, ctx):
         query = """
                 query questionOfToday {
                 activeDailyCodingChallengeQuestion {
@@ -141,30 +142,24 @@ class leetcode(commands.Cog):
 
         data = response.json()
         # Parse the daily challenge json
-        if not (problem_data := data.get("data").get("activeDailyCodingChallengeQuestion")):
+        if not (problem_data := data.get("data", {}).get("activeDailyCodingChallengeQuestion")):
             await ctx.send("Failed to find a daily leetcode problem", ephemeral=True)
             return
 
         embed = discord.Embed()
-        embed.add_field(name="Title", value=problem_data.get("question").get("title"), inline=False)
-        embed.add_field(name="Difficulty", value=problem_data.get("question").get("difficulty"), inline=False)
+        embed.add_field(name="Title", value=problem_data.get("question", {}).get("title"), inline=False)
+        embed.add_field(name="Difficulty", value=problem_data.get("question", {}).get("difficulty"), inline=False)
         embed.add_field(name="Link", value="https://leetcode.com" + (problem_data.get("link")), inline=False)
         await ctx.send(embed=embed, ephemeral=True)
 
 
     @commands.hybrid_command()
-    async def leetcoderandom(self, ctx, difficulty: str = None):
+    async def leetcode_random(self, ctx, difficulty: Literal["Easy", "Medium", "Hard"] | None = None):
         # Because filtering is no longer supported in the graphql endpoint I am querying the rest endpoint for all problems
         url = "https://leetcode.com/api/problems/all/"
 
         if difficulty is None:
             await ctx.send("You must provide a difficulty.\nUsage: `/leetcoderandom <difficulty>`\n", ephemeral=True)
-            return
-        
-        # Strip all the spaces and newlines from the input and converts the first char to uppercase
-        difficulty = re.sub(r"[\n\t\s]*", "", difficulty.lower().capitalize())
-        if(difficulty != "Easy" and difficulty != "Medium" and difficulty != "Hard"):
-            await ctx.send("Please enter easy, medium, or hard for the difficulty.\nUsage: `/leetcoderandom <difficulty>`\n", ephemeral=True)
             return
 
         response = requests.get(url)
@@ -174,7 +169,6 @@ class leetcode(commands.Cog):
         #print(f"{data}")
 
         # Filter by difficulty
-        difficulty = f"{difficulty}"
         filtered = [
             q for q in questions
             if q.get("difficulty").get("level") == {"Easy": 1, "Medium": 2, "Hard": 3}.get(difficulty)
@@ -183,12 +177,12 @@ class leetcode(commands.Cog):
         random_problem = random.choice(filtered)
 
         embed = discord.Embed()
-        embed.add_field(name="Title", value=random_problem.get("stat").get("question__title"), inline=False)
+        embed.add_field(name="Title", value=random_problem.get("stat", {}).get("question__title"), inline=False)
         embed.add_field(name="Difficulty", value=f"{difficulty}", inline=False)
-        embed.add_field(name="Link", value="https://leetcode.com/problems/" + (random_problem.get("stat").get("question__title_slug")), inline=False)
+        embed.add_field(name="Link", value="https://leetcode.com/problems/" + (random_problem.get("stat", {}).get("question__title_slug")), inline=False)
         await ctx.send(embed=embed, ephemeral=True)
 
 
 
 async def setup(bot):
-    await bot.add_cog(leetcode(bot))
+    await bot.add_cog(LeetCode(bot))

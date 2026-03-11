@@ -1,10 +1,10 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import discord.ext.test as dpytest
 import pytest_asyncio
 
 from byte_bot.byte_bot import ByteBot
-
 
 async def _load_all_cogs(bot: ByteBot) -> None:
     cogs_path = Path(__file__).resolve().parents[1] / "byte_bot" / "cogs"
@@ -17,7 +17,8 @@ async def _load_all_cogs(bot: ByteBot) -> None:
 # creates/manages the event loop for async tests/fixtures
 @pytest_asyncio.fixture
 async def bot():
-    bot = ByteBot()
+    test_config = SimpleNamespace(FEATURE_FORUM_CHANNEL_ID=1234567890)
+    bot = ByteBot(config=test_config)
     dpytest.configure(bot)
     
     # initialize discord.py async internals

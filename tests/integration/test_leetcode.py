@@ -10,7 +10,7 @@ class MockResponse:
     def json(self):
         return self._payload
 
-def fake_post(url, json):
+def fake_post_user(url, json):
     username = json["variables"]["username"]
 
     if username == "niits":
@@ -40,21 +40,57 @@ def fake_post(url, json):
 
     return MockResponse({"data": {"matchedUser": None}})
 
+def fake_post_random(url, json):
+    return MockResponse(
+        {
+            "data": {
+                "activeDailyCodingChallengeQuestion":{
+                    "date":"1111-11-11",
+                    "link":"linkToProblem",
+                    "question":{
+                        "title":"testTitle",
+                        "titleSlug":"testTitleSlug",
+                        "difficulty":"Easy",
+                        "acRate":1234,
+                        "questionFrontendId":"1234"
+                    }
+                }
+            }
+        }
+    )
+
 @pytest.mark.asyncio
 async def test_leetcode_no_username(bot):
-    await dpytest.message("+leetcode")
+    await dpytest.message("+leetcode_profile")
     assert dpytest.verify().message().contains().content("You must provide a leetcode username")
 
 @pytest.mark.asyncio
 async def test_leetcode_username(bot, monkeypatch):
-    monkeypatch.setattr(leetcode_module.requests, "post", fake_post)
-    await dpytest.message("+leetcode niits")
+    monkeypatch.setattr(leetcode_module.requests, "post", fake_post_user)
+    await dpytest.message("+leetcode_profile niits")
     resp = dpytest.get_message()
     assert len(resp.embeds) == 1
 
 @pytest.mark.asyncio
 async def test_leetcode_unknown_username(bot, monkeypatch):
-    monkeypatch.setattr(leetcode_module.requests, "post", fake_post)
-    await dpytest.message("+leetcode unknownuser")
+    monkeypatch.setattr(leetcode_module.requests, "post", fake_post_user)
+    await dpytest.message("+leetcode_profile unknownuser")
     assert dpytest.verify().message().contains().content("Failed to find a leetcode user with that username")
 
+@pytest.mark.asyncio
+async def test_leetcode_daily(bot, monkeypatch):
+    await dpytest.message("+leetcode_daily")
+    resp = dpytest.get_message()
+    assert len(resp.embeds) == 1
+
+@pytest.mark.asyncio
+async def test_leetcode_random(bot, monkeypatch):
+    monkeypatch.setattr(leetcode_module.requests, "post", fake_post_random)
+    await dpytest.message("+leetcode_random Easy")
+    resp = dpytest.get_message()
+    assert len(resp.embeds) == 1
+
+@pytest.mark.asyncio
+async def test_leetcode_random_no_input(bot, monkeypatch):
+    await dpytest.message("+leetcode_random")
+    assert dpytest.verify().message().contains().content("You must provide a difficulty.")

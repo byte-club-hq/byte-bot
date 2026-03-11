@@ -141,6 +141,7 @@ class LeetCode(commands.Cog):
         )
 
         data = response.json()
+
         # Parse the daily challenge json
         if not (problem_data := data.get("data", {}).get("activeDailyCodingChallengeQuestion")):
             await ctx.send("Failed to find a daily leetcode problem", ephemeral=True)
@@ -166,12 +167,10 @@ class LeetCode(commands.Cog):
         data = response.json()
         questions = data.get("stat_status_pairs")  # list of all problems
 
-        #print(f"{data}")
-
         # Filter by difficulty
         filtered = [
             q for q in questions
-            if q.get("difficulty").get("level") == {"Easy": 1, "Medium": 2, "Hard": 3}.get(difficulty)
+            if q.get("difficulty", {}).get("level") == {"Easy": 1, "Medium": 2, "Hard": 3}.get(difficulty)
         ]
         
         random_problem = random.choice(filtered)

@@ -159,7 +159,9 @@ class LeetCode(commands.Cog):
         # Because filtering is no longer supported in the graphql endpoint I am querying the rest endpoint for all problems
         url = "https://leetcode.com/api/problems/all/"
 
-        if difficulty is None:
+        difficulties: dict[str, int] = {"Easy": 1, "Medium": 2, "Hard": 3}
+
+        if difficulty not in difficulties:
             await ctx.send("You must provide a difficulty.\nUsage: `/leetcoderandom <difficulty>`\n", ephemeral=True)
             return
 
@@ -170,7 +172,7 @@ class LeetCode(commands.Cog):
         # Filter by difficulty
         filtered = [
             q for q in questions
-            if q.get("difficulty", {}).get("level") == {"Easy": 1, "Medium": 2, "Hard": 3}.get(difficulty)
+            if q.get("difficulty", {}).get("level") == difficulties.get(difficulty)
         ]
         
         random_problem = random.choice(filtered)

@@ -35,7 +35,6 @@ class InterviewPrompt(commands.Cog):
     async def on_ready(self):
         print('InterviewPrompt cog is ready!')
 
-# Work in progress
     @commands.hybrid_command()
     async def interviewprompt(self, ctx):
         q = random.choice(self.questions)
@@ -52,7 +51,6 @@ class InterviewPrompt(commands.Cog):
         embed.set_footer(text="🤖Byte Club😸")
 
         await ctx.send(embed=embed, ephemeral=True)
-
 
 async def setup(bot):
     await bot.add_cog(InterviewPrompt(bot))

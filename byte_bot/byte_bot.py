@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import logging
 from pathlib import Path
+
 import discord
 from discord.ext import commands
 
@@ -12,6 +13,10 @@ INTENTS = discord.Intents.default()
 INTENTS.members = True
 INTENTS.message_content = True
 
+def health_check() -> dict[str, str]:
+    """Return a minimal app health payload for unit testing"""
+    return {"status": "ok", "service": "byte_bot"}
+
 
 class ByteBot(commands.Bot):
     """
@@ -19,7 +24,7 @@ class ByteBot(commands.Bot):
     load cogs, etc.
     """
 
-    def __init__(self):
+    def __init__(self, config):
         super().__init__(
             intents=INTENTS,
             # Legacy way to run commands against the bot. (Doesn't include slash commands)
@@ -30,6 +35,8 @@ class ByteBot(commands.Bot):
             allowed_mentions=discord.AllowedMentions(everyone=False),
         )
 
+        self.config = config
+        self.feature_forum_channel_id = self.config.FEATURE_FORUM_CHANNEL_ID
         # Recording start time for uptime tracking
         self.start_time = datetime.now(timezone.utc)
 

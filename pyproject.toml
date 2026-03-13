@@ -22,3 +22,10 @@ line-length = 120 # Sets the maximum line length to 120 characters.
 [tool.ruff.format]
 preview = true
 quote-style = "preserve"
+
+[dependency-groups]
+dev = [
+    "dpytest>=0.7.0",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+]

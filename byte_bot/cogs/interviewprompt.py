@@ -2,11 +2,32 @@ import discord
 from discord.ext import commands
 import random
 
+class InterviewView(discord.ui.View):
+    def __init__(self, cog):
+        super().__init__(timeout=180)
+        self.cog = cog # gives this View class access to the question bank in InterviewPrompt
+
+    @discord.ui.button(label="Another Question", style=discord.ButtonStyle.primary)
+    async def another_question(self, interaction: discord.Interaction, button: discord.ui.Button):
+        q = random.choice(self.cog.questions)
+
+        embed = discord.Embed(
+            title="More questions!",
+            color=discord.Color.blue()
+        )
+
+        embed.add_field(name="Question:", value=q["question"], inline=False)
+        embed.add_field(name="Answer", value=f"||{q['answer']}||", inline=False)
+        embed.set_footer(text="😺Byte Club🤖")
+
+        # updates the existing message with a different question instead of sending another reply
+        await interaction.response.edit_message(embed=embed)
+
 class InterviewPrompt(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-        # Sample question bank
+        # Sample(?) question bank
         # Source: https://www.geeksforgeeks.org/python/python-interview-questions/
         self.questions = [
             {
@@ -19,7 +40,7 @@ class InterviewPrompt(commands.Cog):
             },
             {
                 "question": "How do you floor a number in Python?",
-                "answer": "To floor a number in Python, we can use the math.floor() function"
+                "answer": "Use the math.floor() function"
             },
             {
                 "question": "What is the difference between / and // in Python?",
@@ -47,10 +68,19 @@ class InterviewPrompt(commands.Cog):
         )
         embed.add_field(name="Question:", value=q["question"], inline=False)
         embed.add_field(name="Answer", value=f"||{q['answer']}||", inline=False)
-        embed.add_field(name="Quiz Source:", value="[link](https://www.geeksforgeeks.org/python/python-interview-questions/)", inline=False)
         embed.set_footer(text="🤖Byte Club😸")
 
-        await ctx.send(embed=embed, ephemeral=True)
+        view = InterviewView(self)
+
+        view.add_item(
+            discord.ui.Button(
+                label="Quiz Source",
+                style=discord.ButtonStyle.link,
+                url="https://www.geeksforgeeks.org/python-interview-questions/"
+            )
+        )
+
+        await ctx.reply(embed=embed, view=view, ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(InterviewPrompt(bot))

@@ -3,5 +3,7 @@ services:
     build: .
     env_file:
       - ".env"
+    volumes:
+      - ./role_toggle_state.json:/app/role_toggle_state.json
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}

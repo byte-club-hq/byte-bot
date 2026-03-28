@@ -5,6 +5,8 @@ from pathlib import Path
 import discord
 from discord.ext import commands
 
+from byte_bot.role_toggle import ROLE_NAME, RoleReactionManager
+
 log = logging.getLogger(__name__)
 
 # Intents determine what events the bot will receive from Discord.
@@ -39,6 +41,38 @@ class ByteBot(commands.Bot):
         self.feature_forum_channel_id = self.config.FEATURE_FORUM_CHANNEL_ID
         # Recording start time for uptime tracking
         self.start_time = datetime.now(timezone.utc)
+        self.role_reaction_manager = RoleReactionManager(self)
+    
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
+        try:
+            await self.role_reaction_manager.handle_reaction_add(payload)
+        except discord.Forbidden:
+            log.error(f"Missing permissions to add '{ROLE_NAME}' via reactions")
+        except Exception:
+            log.exception(f"Failed to add '{ROLE_NAME}' via reaction")
+
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent) -> None:
+        try:
+            await self.role_reaction_manager.handle_reaction_remove(payload)
+        except discord.Forbidden:
+            log.error(f"Missing permissions to remove '{ROLE_NAME}' via reactions")
+        except Exception:
+            log.exception(f"Failed to remove '{ROLE_NAME}' via reaction")
+
+    async def on_ready(self):
+        """Prepare the toggleable role and reaction message when the bot connects."""
+        if not self.guilds:
+            log.warning("Bot is ready but is not connected to any guilds")
+            return
+
+        guild = self.guilds[0]
+
+        try:
+            await self.role_reaction_manager.setup(guild)
+        except discord.Forbidden:
+            log.error(f"Missing permissions to manage role setup in guild '{guild.name}'")
+        except Exception:
+            log.exception(f"Failed to finish role setup in guild '{guild.name}'")
 
     async def setup_hook(self) -> None:
         """Called when the bot is ready to load cogs and interact with the API."""

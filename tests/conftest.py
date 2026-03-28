@@ -17,7 +17,10 @@ async def _load_all_cogs(bot: ByteBot) -> None:
 # creates/manages the event loop for async tests/fixtures
 @pytest_asyncio.fixture
 async def bot():
-    test_config = SimpleNamespace(FEATURE_FORUM_CHANNEL_ID=1234567890)
+    test_config = SimpleNamespace(
+        FEATURE_FORUM_CHANNEL_ID=1234567890,
+        ByteBotHQ_ROLE_CHANNEL_ID=9876543210,
+    )
     bot = ByteBot(config=test_config)
     dpytest.configure(bot)
     

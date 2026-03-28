@@ -10,6 +10,7 @@ dependencies = [
     "dotenv",
     "requests>=2.32.5",
     "ruff",
+    "python-jobspy",
 ]
 
 # Ruff is a formatting plugin that can be used with various editors and tools. 

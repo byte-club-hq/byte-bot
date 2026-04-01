@@ -28,24 +28,24 @@ def get_leetcode_profile(profile: str):
 
     # This is where the graphql query happens, we can also query for problems, found this documentation https://jacoblincool.github.io/LeetCode-Query/
     query = """
-                query getUserProfile($username: String!) {
-                matchedUser(username: $username) {
-                    username
-                    profile {
-                    realName
-                    ranking
-                    reputation
-                    countryName
-                    }
-                    submitStats: submitStatsGlobal {
-                    acSubmissionNum {
-                        difficulty
-                        count
-                    }
-                    }
-                }
-                }
-                """
+        query getUserProfile($username: String!) {
+        matchedUser(username: $username) {
+            username
+            profile {
+            realName
+            ranking
+            reputation
+            countryName
+            }
+            submitStats: submitStatsGlobal {
+            acSubmissionNum {
+                difficulty
+                count
+            }
+            }
+        }
+        }
+    """
         
     variables = {
         "username": f"{profile}"
@@ -59,7 +59,7 @@ def get_leetcode_profile(profile: str):
 
     # First check if that users profile exists
     if not (user_data := data.get("data").get("matchedUser")):
-            raise ValueError("Failed to find a leetcode user with that username")
+        raise ValueError("Failed to find a leetcode user with that username")
     
     # Parse the data
     profile_data = user_data.get("profile")

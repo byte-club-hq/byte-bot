@@ -21,7 +21,7 @@ class LeetCode(commands.Cog):
         try:
             user = get_leetcode_profile(profile)
         except ValueError as err:
-            await ctx.send(err, ephemeral=True)
+            await ctx.send(str(err), ephemeral=True)
             return
         
         # Create a discord Embed object to display
@@ -43,7 +43,7 @@ class LeetCode(commands.Cog):
         try:
             problem_data = get_leetcode_daily()
         except ValueError as err:
-            await ctx.send(err, ephemeral=True)
+            await ctx.send(str(err), ephemeral=True)
             return
 
         embed = discord.Embed()
@@ -58,7 +58,7 @@ class LeetCode(commands.Cog):
         try:
             random_problem = get_leetcode_random(difficulty)
         except ValueError as err:
-            await ctx.send(err, ephemeral=True)
+            await ctx.send(str(err), ephemeral=True)
             return
 
         embed = discord.Embed()

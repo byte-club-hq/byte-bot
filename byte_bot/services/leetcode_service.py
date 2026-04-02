@@ -58,7 +58,7 @@ def get_leetcode_profile(profile: str):
     data = response.json()
 
     # First check if that users profile exists
-    if not (user_data := data.get("data").get("matchedUser")):
+    if not (user_data := data.get("data", {}).get("matchedUser")):
         raise ValueError("Failed to find a leetcode user with that username")
     
     # Parse the data

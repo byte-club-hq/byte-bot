@@ -5,6 +5,7 @@ from discord.ext import commands
 from discord import app_commands
 
 from byte_bot.byte_bot import ByteBot
+from byte_bot.services.feature_suggest_service import create_feature_suggestion
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -91,12 +92,11 @@ class FeatureSuggest(commands.Cog):
             discord.DiscordException: If sending the embed or creating the thread
                 fails due to permissions or other Discord API issues.
         """
-        if len(title) > 256:
-            await self._reply(ctx, "The title cannot exceed 256 characters.")
+        try:
+            suggestion = create_feature_suggestion(title, summary)
+        except ValueError as error:
+            await self._reply(ctx, str(error))
             return
-        if len(summary) > 1024:
-            await self._reply(ctx, "The summary cannot exceed 1024 characters.")
-            return 
 
         channel = self.bot.get_channel(self.feature_forum_channel_id)
         if channel is None:
@@ -112,15 +112,15 @@ class FeatureSuggest(commands.Cog):
             description="Allow community members to submit a feature request/suggestion.",
             color=discord.Color.brand_red(),
         )
-        embed.add_field(name="Title", value=f"{title}", inline=False)
-        embed.add_field(name="Summary", value=f"{summary}", inline=False)
+        embed.add_field(name="Title", value=f"{suggestion.title}", inline=False)
+        embed.add_field(name="Summary", value=f"{suggestion.summary}", inline=False)
         embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=icon_url)
 
         # --- Send embed to forum thread ---
         try:
             if isinstance(channel, discord.ForumChannel):
                 thread_with_message = await channel.create_thread(
-                    name=title,
+                    name=suggestion.title,
                     embed=embed
                 )
                 thread = thread_with_message.thread

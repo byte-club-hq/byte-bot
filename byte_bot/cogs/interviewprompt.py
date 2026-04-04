@@ -1,14 +1,9 @@
 import discord
 from discord.ext import commands
-import random
 from dataclasses import dataclass
-import json
 
 from byte_bot.cogs.utilities import logger
-
-# Loads the question:answer from the json file
-with open("byte_bot/data/interview_questions.json") as f:
-    questions = json.load(f)
+from byte_bot.services.interviewprompt_service import get_random_question, QUESTIONS
 
 # Embed helper
 def build_question_embed(q, title="Ready for an interview?"):
@@ -38,10 +33,10 @@ class InterviewView(discord.ui.View):
 
     @discord.ui.button(label="Another Question", style=discord.ButtonStyle.primary)
     async def another_question(self, interaction: discord.Interaction, button: discord.ui.Button):
-        q = random.choice(questions)
+        q = get_random_question()
         # Avoids sending the same question in a row
         while q == self.previous_question:
-            q = random.choice(questions)
+            q = get_random_question()
         self.previous_question = q
 
         embed = build_question_embed(q, title="More questions!")
@@ -67,10 +62,10 @@ class InterviewPrompt(commands.Cog):
             Returns:
                 None: Sends an ephemeral embed directly to the user.
         """
-        q = random.choice(questions)
+        q = get_random_question()
         embed = build_question_embed(q)
 
-        view = InterviewView(questions)
+        view = InterviewView(QUESTIONS)
 
         view.add_item(
             discord.ui.Button(

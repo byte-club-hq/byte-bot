@@ -1,7 +1,9 @@
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 import discord.ext.test as dpytest
+import pytest
 import pytest_asyncio
 
 from byte_bot.byte_bot import ByteBot
@@ -15,9 +17,17 @@ async def _load_all_cogs(bot: ByteBot) -> None:
         await bot.load_extension(f"byte_bot.cogs.{module}")
 
 # creates/manages the event loop for async tests/fixtures
+@pytest.fixture
+def database_path():
+    return f"file:{uuid4()}?mode=memory&cache=shared"
+
+
 @pytest_asyncio.fixture
-async def bot():
-    test_config = SimpleNamespace(FEATURE_FORUM_CHANNEL_ID=1234567890)
+async def bot(database_path):
+    test_config = SimpleNamespace(
+        FEATURE_FORUM_CHANNEL_ID=1234567890,
+        DATABASE_PATH=database_path,
+    )
     bot = ByteBot(config=test_config)
     dpytest.configure(bot)
     
@@ -33,3 +43,4 @@ async def bot():
         yield bot
     finally:
         await dpytest.empty_queue()
+        bot.database_service.close()

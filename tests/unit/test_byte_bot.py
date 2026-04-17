@@ -13,13 +13,14 @@ def test_byte_bot_initializes_database_service():
     bot = ByteBot(TestConfig())
 
     try:
-        table = bot.database_service.connection.execute(
-            """
-            SELECT name
-            FROM sqlite_master
-            WHERE type = 'table' AND name = 'users'
-            """
-        ).fetchone()
+        with bot.database_service.get_connection() as connection:
+            table = connection.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'table' AND name = 'users'
+                """
+            ).fetchone()
 
         assert table["name"] == "users"
     finally:

@@ -1,7 +1,5 @@
 from pathlib import Path
 from types import SimpleNamespace
-from uuid import uuid4
-
 import discord.ext.test as dpytest
 import pytest
 import pytest_asyncio
@@ -18,8 +16,8 @@ async def _load_all_cogs(bot: ByteBot) -> None:
 
 # creates/manages the event loop for async tests/fixtures
 @pytest.fixture
-def database_path():
-    return f"file:{uuid4()}?mode=memory&cache=shared"
+def database_path(tmp_path):
+    return str(tmp_path / "byte_bot.db")
 
 
 @pytest_asyncio.fixture

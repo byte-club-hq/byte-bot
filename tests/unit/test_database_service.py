@@ -4,13 +4,14 @@ from byte_bot.services.database_service import DatabaseService
 def test_database_service_initializes_users_table(database_path):
     database_service = DatabaseService(database_path)
 
-    table = database_service.connection.execute(
-        """
-        SELECT name
-        FROM sqlite_master
-        WHERE type = 'table' AND name = 'users'
-        """
-    ).fetchone()
+    with database_service.get_connection() as connection:
+        table = connection.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'users'
+            """
+        ).fetchone()
 
     assert table["name"] == "users"
 

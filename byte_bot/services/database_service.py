@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 import sqlite3
@@ -15,7 +16,6 @@ class DatabaseService:
         self.database_path = database_path
         # sqlite treats values like "file:..." as connection URIs, not plain file paths.
         self._is_uri = database_path.startswith("file:")
-        self.connection = self._create_connection()
         self.initialize()
 
     def _create_connection(self) -> sqlite3.Connection:
@@ -28,18 +28,30 @@ class DatabaseService:
         connection.row_factory = sqlite3.Row
         return connection
 
+    @contextmanager
+    def get_connection(self):
+        connection = self._create_connection()
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def initialize(self) -> None:
         # Safe to call on every startup; this only creates the table if it's missing.
-        self.connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                user_id INTEGER PRIMARY KEY,
-                discord_username TEXT NOT NULL,
-                leetcode_username TEXT
+        with self.get_connection() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id INTEGER PRIMARY KEY,
+                    discord_username TEXT NOT NULL,
+                    leetcode_username TEXT
+                )
+                """
             )
-            """
-        )
-        self.connection.commit()
 
     def upsert_user(
         self,
@@ -49,33 +61,34 @@ class DatabaseService:
         leetcode_username: str | None = None,
     ) -> UserRecord:
         # Insert the user the first time we see them, otherwise refresh the stored names.
-        cursor = self.connection.execute(
-            """
-            INSERT INTO users (user_id, discord_username, leetcode_username)
-            VALUES (?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-                discord_username = excluded.discord_username,
-                leetcode_username = excluded.leetcode_username
-            """,
-            (user_id, discord_username, leetcode_username),
-        )
-        self.connection.commit()
+        with self.get_connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO users (user_id, discord_username, leetcode_username)
+                VALUES (?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    discord_username = excluded.discord_username,
+                    leetcode_username = excluded.leetcode_username
+                """,
+                (user_id, discord_username, leetcode_username),
+            )
 
-        if cursor.rowcount == 0:
-            raise ValueError(f"Failed to upsert user with id {user_id}")
+            if cursor.rowcount == 0:
+                raise ValueError(f"Failed to upsert user with id {user_id}")
 
         return self.get_user(user_id)
 
     def get_user(self, user_id: int) -> UserRecord | None:
         # Return None when the user has not been stored yet so callers can branch on that cleanly.
-        row = self.connection.execute(
-            """
-            SELECT user_id, discord_username, leetcode_username
-            FROM users
-            WHERE user_id = ?
-            """,
-            (user_id,),
-        ).fetchone()
+        with self.get_connection() as connection:
+            row = connection.execute(
+                """
+                SELECT user_id, discord_username, leetcode_username
+                FROM users
+                WHERE user_id = ?
+                """,
+                (user_id,),
+            ).fetchone()
 
         if row is None:
             return None
@@ -86,5 +99,3 @@ class DatabaseService:
             leetcode_username=row["leetcode_username"],
         )
 
-    def close(self) -> None:
-        self.connection.close()

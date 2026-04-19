@@ -69,8 +69,3 @@ class ByteBot(commands.Bot):
         # Syncs the application commands (slash commands) with Discord.
         synced = await self.tree.sync()
         log.info(f"Added main cog commands... Synced {len(synced)} commands")
-
-    # Close app resources we own before handing shutdown back to discord.py
-    async def close(self) -> None:
-        self.database_service.close()
-        await super().close()

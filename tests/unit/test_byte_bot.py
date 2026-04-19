@@ -1,27 +1,31 @@
-from byte_bot.byte_bot import health_check
-from byte_bot.byte_bot import ByteBot
+from contextlib import closing
 
-class TestConfig:
+from byte_bot.byte_bot import ByteBot
+from byte_bot.byte_bot import health_check
+
+
+class BotConfig:
     FEATURE_FORUM_CHANNEL_ID = 1234567890
-    DATABASE_PATH = ":memory:"
+
+    def __init__(self, database_path: str):
+        self.DATABASE_PATH = database_path
+
 
 def test_health_check_returns_ok_status():
     result = health_check()
     assert result == {"status": "ok", "service": "byte_bot"}
 
-def test_byte_bot_initializes_database_service():
-    bot = ByteBot(TestConfig())
 
-    try:
-        with bot.database_service.get_connection() as connection:
-            table = connection.execute(
-                """
-                SELECT name
-                FROM sqlite_master
-                WHERE type = 'table' AND name = 'users'
-                """
-            ).fetchone()
+def test_byte_bot_initializes_database_service(tmp_path):
+    bot = ByteBot(BotConfig(str(tmp_path / "byte_bot.db")))
 
-        assert table["name"] == "users"
-    finally:
-        bot.database_service.close()
+    with closing(bot.database_service.get_connection()) as connection:
+        table = connection.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'users'
+            """
+        ).fetchone()
+
+    assert table["name"] == "users"

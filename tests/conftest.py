@@ -41,4 +41,3 @@ async def bot(database_path):
         yield bot
     finally:
         await dpytest.empty_queue()
-        bot.database_service.close()

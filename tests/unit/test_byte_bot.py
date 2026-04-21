@@ -1,5 +1,3 @@
-from contextlib import closing
-
 from byte_bot.byte_bot import ByteBot
 from byte_bot.byte_bot import health_check
 
@@ -19,7 +17,7 @@ def test_health_check_returns_ok_status():
 def test_byte_bot_initializes_database_service(tmp_path):
     bot = ByteBot(BotConfig(str(tmp_path / "byte_bot.db")))
 
-    with closing(bot.database_service.get_connection()) as connection:
+    with bot.database_service.get_connection() as connection:
         table = connection.execute(
             """
             SELECT name

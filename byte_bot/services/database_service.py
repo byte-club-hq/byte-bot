@@ -1,4 +1,4 @@
-from contextlib import closing, contextmanager
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 import sqlite3
@@ -28,22 +28,22 @@ class DatabaseService:
         connection.row_factory = sqlite3.Row
         return connection
 
-    def get_connection(self):
-        return self._create_connection()
-
     @contextmanager
-    def transaction(self, connection: sqlite3.Connection):
-        with connection:
+    def get_connection(self):
+        connection = self._create_connection()
+        try:
             yield connection
+        finally:
+            connection.close()
 
     def initialize(self) -> None:
         # Safe to call on every startup; this only creates the table if it's missing.
-        with closing(self.get_connection()) as connection:
-            with self.transaction(connection):
+        with self.get_connection() as connection:
+            with connection:
                 connection.execute(
                     """
                     CREATE TABLE IF NOT EXISTS users (
-                        user_id INTEGER PRIMARY KEY,
+                        user_id INTEGER PRIMARY KEY AUTOINCREMENT,
                         discord_username TEXT NOT NULL,
                         leetcode_username TEXT
                     )
@@ -53,32 +53,38 @@ class DatabaseService:
     def upsert_user(
         self,
         *,
-        user_id: int,
+        user_id: int | None = None,
         discord_username: str,
         leetcode_username: str | None = None,
     ) -> UserRecord:
-        # Insert the user the first time we see them, otherwise refresh the stored names.
-        with closing(self.get_connection()) as connection:
-            with self.transaction(connection):
-                cursor = connection.execute(
-                    """
-                    INSERT INTO users (user_id, discord_username, leetcode_username)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        discord_username = excluded.discord_username,
-                        leetcode_username = excluded.leetcode_username
-                    """,
-                    (user_id, discord_username, leetcode_username),
-                )
-
-                if cursor.rowcount == 0:
-                    raise ValueError(f"Failed to upsert user with id {user_id}")
+        """Insert/update user - SQLite assigns the primary key for new users. Pass a user_id only when updating an existing user."""
+        with self.get_connection() as connection:
+            with connection:
+                if user_id is None:
+                    cursor = connection.execute(
+                        """
+                        INSERT INTO users (discord_username, leetcode_username)
+                        VALUES (?, ?)
+                        """,
+                        (discord_username, leetcode_username),
+                    )
+                    user_id = cursor.lastrowid
+                else:
+                    connection.execute(
+                        """
+                        INSERT INTO users (user_id, discord_username, leetcode_username)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(user_id) DO UPDATE SET
+                            discord_username = excluded.discord_username,
+                            leetcode_username = excluded.leetcode_username
+                        """,
+                        (user_id, discord_username, leetcode_username),
+                    )
 
         return self.get_user(user_id)
 
     def get_user(self, user_id: int) -> UserRecord | None:
-        # Return None when the user has not been stored yet so callers can branch on that cleanly.
-        with closing(self.get_connection()) as connection:
+        with self.get_connection() as connection:
             row = connection.execute(
                 """
                 SELECT user_id, discord_username, leetcode_username
@@ -96,4 +102,3 @@ class DatabaseService:
             discord_username=row["discord_username"],
             leetcode_username=row["leetcode_username"],
         )
-

@@ -5,6 +5,8 @@ from pathlib import Path
 import discord
 from discord.ext import commands
 
+from byte_bot.services.database_service import DatabaseService
+
 log = logging.getLogger(__name__)
 
 # Intents determine what events the bot will receive from Discord.
@@ -37,6 +39,7 @@ class ByteBot(commands.Bot):
 
         self.config = config
         self.feature_forum_channel_id = self.config.FEATURE_FORUM_CHANNEL_ID
+        self.database_service = DatabaseService(self.config.DATABASE_PATH)
         # Recording start time for uptime tracking
         self.start_time = datetime.now(timezone.utc)
 

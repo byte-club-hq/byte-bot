@@ -208,7 +208,7 @@ class RoleToggleCog(commands.Cog):
             return
         raise error
 
-    @commands.hybrid_command(name="roletoggle_delete", description="Delete a role-toggle panel configuration.")
+    @commands.hybrid_command(name="roletoggle_delete", description="Delete a role-toggle panel (removes the panel message). Optionally also delete / preserve the Discord role")
     @app_commands.describe(
         role_name="Role name of the panel to delete (use /roletoggle_list)",
         delete_discord_role="Also delete the Discord role (only if you really want it gone)",

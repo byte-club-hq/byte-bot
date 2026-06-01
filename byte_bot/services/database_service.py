@@ -55,6 +55,7 @@ class DatabaseService:
                     CREATE TABLE IF NOT EXISTS role_toggle_panels (
                         guild_id INTEGER NOT NULL,
                         message_id INTEGER,
+                        role_id INTEGER,
                         role_name TEXT NOT NULL,
                         emoji TEXT NOT NULL,
                         title TEXT NOT NULL,

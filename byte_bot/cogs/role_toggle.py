@@ -71,8 +71,10 @@ class RoleToggleCog(commands.Cog):
         await self._setup_role_toggle_panels(channel.guild, channel)
 
     async def _setup_role_toggle_panels(self, guild: discord.Guild, channel: discord.TextChannel) -> None:
+        existing_panels = self.service.list_panels(guild.id)
+
         # Keep the default panel around.
-        if self.service.get_panel(guild.id, role_name=DEFAULT_ROLE_NAME) is None:
+        if not any(panel.role_name == DEFAULT_ROLE_NAME for panel in existing_panels):
             try:
                 await self._create_panel(
                     guild=guild,
@@ -86,7 +88,7 @@ class RoleToggleCog(commands.Cog):
             except Exception:
                 log.exception("Failed to create default role-toggle panel in guild '%s'", guild.name)
 
-        for panel in self.service.list_panels(guild.id):
+        for panel in existing_panels:
             try:
                 await self._update_existing_panel(guild, channel, panel)
             except discord.Forbidden:
@@ -129,6 +131,21 @@ class RoleToggleCog(commands.Cog):
         role = await guild.create_role(name=role_name, mentionable=True)
         log.info("Created role '%s' in guild '%s'", role_name, guild.name)
         return role
+
+    async def _resolve_panel_role(self, guild: discord.Guild, panel: RoleTogglePanel) -> discord.Role:
+        if panel.role_id is not None:
+            role = guild.get_role(panel.role_id)
+            if role is not None:
+                return role
+
+            log.warning(
+                "Stored Discord role id %s for panel '%s' was not found in guild '%s'; recreating/rebinding role",
+                panel.role_id,
+                panel.role_name,
+                guild.name,
+            )
+
+        return await self._create_panel_role(guild, panel.role_name)
 
     def _get_panel_role(self, guild: discord.Guild, panel: RoleTogglePanel) -> discord.Role | None:
         if panel.role_id is None:
@@ -194,9 +211,16 @@ class RoleToggleCog(commands.Cog):
     async def _update_existing_panel(
         self, guild: discord.Guild, channel: discord.TextChannel, panel: RoleTogglePanel
     ) -> bool:
-        role = self._get_panel_role(guild, panel)
-        if role is None:
-            return False
+        role = await self._resolve_panel_role(guild, panel)
+        if panel.role_id != role.id:
+            panel = self.service.upsert_panel(
+                guild_id=panel.guild_id,
+                role_name=panel.role_name,
+                emoji=panel.emoji,
+                title=panel.title,
+                message_id=panel.message_id,
+                role_id=role.id,
+            )
 
         if panel.message_id is None:
             log.warning("Role-toggle panel '%s' has no stored Discord message id", panel.role_name)
@@ -313,19 +337,18 @@ class RoleToggleCog(commands.Cog):
                     title=effective_title,
                 )
             else:
+                role = await self._resolve_panel_role(ctx.guild, existing_panel)
                 panel = RoleTogglePanel(
                     guild_id=ctx.guild.id,
                     message_id=existing_panel.message_id,
-                    role_id=existing_panel.role_id,
+                    role_id=role.id,
                     role_name=cleaned_role_name,
                     emoji=cleaned_emoji,
                     title=effective_title,
                 )
                 updated = await self._update_existing_panel(ctx.guild, channel, panel)
                 if not updated:
-                    await self._reply(
-                        ctx, "Could not update that role-toggle panel because its Discord objects are missing."
-                    )
+                    await self._reply(ctx, "Could not update that role-toggle panel because its message is missing.")
                     return
                 panel = self.service.upsert_panel(
                     guild_id=ctx.guild.id,

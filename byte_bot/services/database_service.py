@@ -50,6 +50,27 @@ class DatabaseService:
                     """
                 )
 
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS role_toggle_panels (
+                        guild_id INTEGER NOT NULL,
+                        message_id INTEGER,
+                        role_id INTEGER,
+                        role_name TEXT NOT NULL,
+                        emoji TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        PRIMARY KEY (guild_id, role_name)
+                    )
+                    """
+                )
+
+                connection.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_role_toggle_panels_message
+                    ON role_toggle_panels (guild_id, message_id, emoji)
+                    """
+                )
+
     def upsert_user(
         self,
         *,

@@ -20,6 +20,15 @@ def test_database_service_initializes_users_table(database_path):
     assert table["name"] == "users"
 
 
+def test_database_service_initializes_role_toggle_role_id_column(database_path):
+    database_service = DatabaseService(database_path)
+
+    with database_service.get_connection() as connection:
+        columns = connection.execute("PRAGMA table_info(role_toggle_panels)").fetchall()
+
+    assert "role_id" in {column["name"] for column in columns}
+
+
 def test_database_service_upserts_and_reads_user(database_path):
     database_service = DatabaseService(database_path)
 

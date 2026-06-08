@@ -25,6 +25,7 @@ async def bot(database_path):
     test_config = SimpleNamespace(
         FEATURE_FORUM_CHANNEL_ID=1234567890,
         DATABASE_PATH=database_path,
+        ROLE_CHANNEL_ID=9876543210,
     )
     bot = ByteBot(config=test_config)
     dpytest.configure(bot)

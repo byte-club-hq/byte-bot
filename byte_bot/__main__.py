@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -13,6 +14,13 @@ def get_config() -> Config:
     discord_token = os.environ.get("DISCORD_TOKEN")
     forum_channel_id_str = os.environ.get("FEATURE_FORUM_CHANNEL_ID")
 
+    # Keep a local sqlite file by default so the bot can start without extra setup.
+    database_path = os.environ.get("DATABASE_PATH") or str(
+        Path(__file__).resolve().parents[1] / "database" / "byte_bot.db"
+    )
+
+    role_channel_id_str = os.environ.get("ROLE_CHANNEL_ID")
+
     if not discord_token:  # Ensure the token is set before proceeding
         raise ValueError("DISCORD_TOKEN environment variable is not set.")
     if not forum_channel_id_str: 
@@ -23,7 +31,19 @@ def get_config() -> Config:
     except ValueError:
         raise ValueError("FEATURE_FORUM_CHANNEL_ID must be an integer.")
     
-    return Config(DISCORD_TOKEN=discord_token, FEATURE_FORUM_CHANNEL_ID=forum_channel_id)
+    role_channel_id = None
+    if role_channel_id_str:
+        try:
+            role_channel_id = int(role_channel_id_str)
+        except ValueError:
+            raise ValueError("ROLE_CHANNEL_ID must be an integer.")
+
+    return Config(
+        DISCORD_TOKEN=discord_token,
+        FEATURE_FORUM_CHANNEL_ID=forum_channel_id,
+        DATABASE_PATH=database_path,
+        ROLE_CHANNEL_ID=role_channel_id,
+    )
 
 def main():
     config = get_config()

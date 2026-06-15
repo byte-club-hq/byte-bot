@@ -25,13 +25,15 @@ To get started with developing Byte Bot locally, follow these steps:
 5. Set your IDE interpreter to the python executable in your project's .venv directory.
    This will ensure that your IDE uses the correct dependencies when running the bot.
 
-6. Create a `.env` file in the root of the project and add your Discord bot token.
+6. Create a `.env` file in the root of the project and add the required environment variables.
     1. You can create a bot and get your token from
        the [Discord Developer Portal](https://discord.com/developers/applications).
     2. The `.env` file should look something like this:
          <!-- Please add new .env vars here as needed -->
          ```bash
          DISCORD_TOKEN=your_discord_bot_token_here
+         FEATURE_FORUM_CHANNEL_ID=123456789012345678
+         DATABASE_PATH=database/byte_bot.db
          ```
 
     3. **WARNING**: This token is unique to YOU and YOU ONLY. DO NOT commit this token to the repo, or you risk exposing

@@ -1,0 +1,22 @@
+[
+    {
+        "question": "How can you concatenate two lists in Python?",
+        "answer": "By using the + operator or the extend() method."
+     },
+    {
+        "question": "What is the difference between for loop and while loop in Python?",
+        "answer": "For loops are used when we know how many times to repeat, often with lists, tuples, sets, or dictionaries. While loops are used when we only have an end condition and don't know exactly how many times it will repeat."
+    },
+    {
+        "question": "How do you floor a number in Python?",
+        "answer": "Use the math.floor() function."
+    },
+    {
+        "question": "What is the difference between / and // in Python?",
+        "answer": "/ represents precise division (result is a floating point number) whereas // represents floor division (result is an integer)."
+    },
+    {
+        "question": "Is indentation Required in Python?",
+        "answer": "Yes, indentation is required in Python."
+    }
+]

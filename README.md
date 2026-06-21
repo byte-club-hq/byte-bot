@@ -2,6 +2,10 @@
 
 A helpful Discord bot for the Byte Club community.
 
+## Design Docs
+
+- [Local LLM Agent Design](docs/local-llm-agent-design.md)
+
 ## Getting Started
 
 To get started with developing Byte Bot locally, follow these steps:

@@ -247,7 +247,37 @@ class RoleToggleCog(commands.Cog):
             log.exception("Could not add reaction %s to role-toggle message %s", panel.emoji, message.id)
             raise
 
+        await self._sync_panel_memberships(guild, panel)
         return True
+
+    async def _sync_panel_memberships(self, guild: discord.Guild, panel: RoleTogglePanel) -> None:
+        role = self._get_panel_role(guild, panel)
+        if role is None:
+            return
+
+        # ponytail: sync only cached users; add a manual full reconciliation command if Discord is edited outside the bot.
+        for membership in self.service.list_memberships(guild_id=guild.id, role_id=role.id):
+            member = guild.get_member(membership.user_id)
+            if member is None:
+                try:
+                    member = await guild.fetch_member(membership.user_id)
+                except discord.NotFound:
+                    log.info("Cached role-toggle user %s is no longer in guild '%s'", membership.user_id, guild.name)
+                    continue
+                except discord.HTTPException:
+                    log.warning("Could not fetch cached role-toggle user %s in guild '%s'", membership.user_id, guild.name)
+                    continue
+
+            has_role = role in member.roles
+            try:
+                if membership.should_have_role and not has_role:
+                    await member.add_roles(role, reason="Role-toggle startup sync")
+                elif not membership.should_have_role and has_role:
+                    await member.remove_roles(role, reason="Role-toggle startup sync")
+            except discord.Forbidden:
+                log.error("Missing permissions to sync '%s' for user %s", panel.role_name, membership.user_id)
+            except discord.HTTPException:
+                log.exception("Discord rejected sync for '%s' and user %s", panel.role_name, membership.user_id)
 
     @commands.hybrid_command(
         name="roletoggle_status", description="Show the role-toggle configuration for this server."
@@ -421,6 +451,8 @@ class RoleToggleCog(commands.Cog):
                 except discord.HTTPException:
                     await self._reply(ctx, "Deleted config, but failed to delete the Discord role (HTTP error).")
 
+        if panel.role_id is not None:
+            self.service.delete_memberships(guild_id=ctx.guild.id, role_id=panel.role_id)
         self.service.delete_panel(guild_id=ctx.guild.id, role_name=panel.role_name)
         await self._reply(ctx, f"Deleted role-toggle panel for role `{panel.role_name}`.")
 
@@ -446,6 +478,13 @@ class RoleToggleCog(commands.Cog):
             except discord.HTTPException:
                 log.warning("Could not fetch member %s in guild '%s'", user_id, guild.name)
                 return
+
+        self.service.set_membership(
+            guild_id=guild.id,
+            role_id=role.id,
+            user_id=user_id,
+            should_have_role=should_have_role,
+        )
 
         has_role = role in member.roles
         if should_have_role and not has_role:

@@ -71,6 +71,19 @@ class DatabaseService:
                     """
                 )
 
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS role_toggle_memberships (
+                        guild_id INTEGER NOT NULL,
+                        role_id INTEGER NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        should_have_role INTEGER NOT NULL,
+                        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (guild_id, role_id, user_id)
+                    )
+                    """
+                )
+
     def upsert_user(
         self,
         *,

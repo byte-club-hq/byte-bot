@@ -29,6 +29,21 @@ def test_database_service_initializes_role_toggle_role_id_column(database_path):
     assert "role_id" in {column["name"] for column in columns}
 
 
+def test_database_service_initializes_role_toggle_memberships_table(database_path):
+    database_service = DatabaseService(database_path)
+
+    with database_service.get_connection() as connection:
+        table = connection.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'role_toggle_memberships'
+            """
+        ).fetchone()
+
+    assert table["name"] == "role_toggle_memberships"
+
+
 def test_database_service_upserts_and_reads_user(database_path):
     database_service = DatabaseService(database_path)
 

@@ -162,7 +162,7 @@ async def test_update_existing_panel_refreshes_missing_role_id():
         upserted.append(kwargs)
         return RoleTogglePanel(**kwargs)
 
-    cog.service = SimpleNamespace(upsert_panel=upsert_panel)
+    cog.service = SimpleNamespace(upsert_panel=upsert_panel, list_memberships=lambda **kwargs: [])
     guild = SimpleNamespace(
         id=1,
         name="Byte Club",
@@ -184,3 +184,36 @@ async def test_update_existing_panel_refreshes_missing_role_id():
     assert upserted[0]["role_id"] == created_role.id
     assert reactions == ["✅"]
     assert edited_messages
+
+
+@pytest.mark.asyncio
+async def test_toggle_role_records_membership_before_role_change():
+    cog = _cog_without_bot()
+    role = SimpleNamespace(id=100, name="ByteClubHQ")
+    added_roles = []
+    memberships = []
+
+    async def add_roles(role_to_add, reason: str):
+        added_roles.append((role_to_add, reason))
+
+    member = SimpleNamespace(id=200, roles=[], add_roles=add_roles)
+    guild = SimpleNamespace(
+        id=1,
+        name="Byte Club",
+        get_role=lambda role_id: role if role_id == role.id else None,
+        get_member=lambda user_id: member if user_id == member.id else None,
+    )
+    panel = RoleTogglePanel(
+        guild_id=1,
+        message_id=2,
+        role_id=role.id,
+        role_name="ByteClubHQ",
+        emoji="âœ…",
+        title="ByteClubHQ Access",
+    )
+    cog.service = SimpleNamespace(set_membership=lambda **kwargs: memberships.append(kwargs))
+
+    await cog._toggle_role_for_member(guild=guild, user_id=member.id, panel=panel, should_have_role=True)
+
+    assert memberships == [{"guild_id": 1, "role_id": 100, "user_id": 200, "should_have_role": True}]
+    assert added_roles == [(role, "User reacted to role toggle message")]

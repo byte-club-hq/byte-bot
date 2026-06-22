@@ -16,6 +16,14 @@ class RoleTogglePanel:
     title: str
 
 
+@dataclass(frozen=True)
+class RoleToggleMembership:
+    guild_id: int
+    role_id: int
+    user_id: int
+    should_have_role: bool
+
+
 DEFAULT_ROLE_NAME = "ByteClubHQ"
 DEFAULT_TOGGLE_EMOJI = "\u2705"
 DEFAULT_TOGGLE_TITLE = "ByteClubHQ Access"
@@ -102,6 +110,53 @@ class RoleToggleService:
                     WHERE guild_id = ? AND role_name = ?
                     """,
                     (guild_id, role_name),
+                )
+
+    def set_membership(self, *, guild_id: int, role_id: int, user_id: int, should_have_role: bool) -> None:
+        with self.database_service.get_connection() as connection:
+            with connection:
+                connection.execute(
+                    """
+                    INSERT INTO role_toggle_memberships (guild_id, role_id, user_id, should_have_role, updated_at)
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(guild_id, role_id, user_id) DO UPDATE SET
+                        should_have_role = excluded.should_have_role,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (guild_id, role_id, user_id, int(should_have_role)),
+                )
+
+    def list_memberships(self, *, guild_id: int, role_id: int) -> list[RoleToggleMembership]:
+        with self.database_service.get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT guild_id, role_id, user_id, should_have_role
+                FROM role_toggle_memberships
+                WHERE guild_id = ? AND role_id = ?
+                ORDER BY user_id ASC
+                """,
+                (guild_id, role_id),
+            ).fetchall()
+
+        return [
+            RoleToggleMembership(
+                guild_id=row["guild_id"],
+                role_id=row["role_id"],
+                user_id=row["user_id"],
+                should_have_role=bool(row["should_have_role"]),
+            )
+            for row in rows
+        ]
+
+    def delete_memberships(self, *, guild_id: int, role_id: int) -> None:
+        with self.database_service.get_connection() as connection:
+            with connection:
+                connection.execute(
+                    """
+                    DELETE FROM role_toggle_memberships
+                    WHERE guild_id = ? AND role_id = ?
+                    """,
+                    (guild_id, role_id),
                 )
 
     def find_matching_panel(self, *, guild_id: int, message_id: int, emoji: str) -> RoleTogglePanel | None:

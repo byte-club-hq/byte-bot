@@ -40,7 +40,7 @@ async def test_suggestfeature_created_thread(bot, monkeypatch):
     _patch_feature_service(
         monkeypatch,
         bot,
-        lambda title, summary: FeatureSuggestion(title=title, summary=summary),
+        lambda title, summary, image: FeatureSuggestion(title=title, summary=summary, image=image),
     )
 
     await dpytest.message('+suggestfeature "Dark Mode" Add a dark theme for users.')
@@ -59,7 +59,7 @@ async def test_suggestfeature_sends_confirmation(bot, monkeypatch):
     _patch_feature_service(
         monkeypatch,
         bot,
-        lambda title, summary: FeatureSuggestion(title=title, summary=summary),
+        lambda title, summary, image: FeatureSuggestion(title=title, summary=summary, image=image),
     )
 
     await dpytest.message('+suggestfeature "Dark Mode" Add a dark theme for users.')
@@ -75,7 +75,7 @@ async def test_suggestfeature_single_word_title(bot, monkeypatch):
     _patch_feature_service(
         monkeypatch,
         bot,
-        lambda title, summary: FeatureSuggestion(title=title, summary=summary),
+        lambda title, summary, image: FeatureSuggestion(title=title, summary=summary, image=image),
     )
 
     await dpytest.message("+suggestfeature Notifications Add push notifications.")
@@ -89,7 +89,7 @@ async def test_suggestfeature_service_error_is_reported(bot, monkeypatch):
     mock_channel = _make_forum_channel()
     monkeypatch.setattr(bot, "get_channel", lambda _: mock_channel)
 
-    def raise_value_error(title, summary):
+    def raise_value_error(title, summary, image):
         raise ValueError("The title cannot exceed 256 characters.")
 
     _patch_feature_service(monkeypatch, bot, raise_value_error)
@@ -127,7 +127,7 @@ async def test_suggestfeature_channel_not_found(bot, monkeypatch):
     _patch_feature_service(
         monkeypatch,
         bot,
-        lambda title, summary: FeatureSuggestion(title=title, summary=summary),
+        lambda title, summary, image: FeatureSuggestion(title=title, summary=summary, image=image),
     )
 
     await dpytest.message('+suggestfeature "Dark Mode" Some summary.')
@@ -142,7 +142,7 @@ async def test_suggestfeature_wrong_channel_type(bot, monkeypatch):
     _patch_feature_service(
         monkeypatch,
         bot,
-        lambda title, summary: FeatureSuggestion(title=title, summary=summary),
+        lambda title, summary, image: FeatureSuggestion(title=title, summary=summary, image=image),
     )
 
     await dpytest.message('+suggestfeature "Dark Mode" Some summary.')
@@ -159,7 +159,7 @@ async def test_suggestfeature_wrong_channel_type_no_thread_created(bot, monkeypa
     _patch_feature_service(
         monkeypatch,
         bot,
-        lambda title, summary: FeatureSuggestion(title=title, summary=summary),
+        lambda title, summary, image: FeatureSuggestion(title=title, summary=summary, image=image),
     )
 
     await dpytest.message('+suggestfeature "Dark Mode" Some summary.')
@@ -176,9 +176,82 @@ async def test_suggestfeature_discord_exception(bot, monkeypatch):
     _patch_feature_service(
         monkeypatch,
         bot,
-        lambda title, summary: FeatureSuggestion(title=title, summary=summary),
+        lambda title, summary, image: FeatureSuggestion(title=title, summary=summary, image=image),
     )
 
     await dpytest.message('+suggestfeature "Dark Mode" Some summary.')
 
     assert dpytest.verify().message().contains().content("Failed to submit your feature suggestion")
+
+
+@pytest.mark.asyncio
+async def test_suggestfeature_image_url_sets_embed_image(bot, monkeypatch):
+    _block_dms(monkeypatch)
+    mock_channel = _make_forum_channel()
+    monkeypatch.setattr(bot, "get_channel", lambda _: mock_channel)
+    _patch_feature_service(
+        monkeypatch,
+        bot,
+        lambda title, summary, image=None: FeatureSuggestion(title=title, summary=summary, image=image),
+    )
+
+    await dpytest.message('+suggestfeature "Dark Mode" https://thread.com/image.png My summary')
+
+    embed = mock_channel.create_thread.call_args[1]["embed"]
+    assert embed.image.url == "https://thread.com/image.png"
+
+
+@pytest.mark.asyncio
+async def test_suggestfeature_no_image_leaves_embed_image_unset(bot, monkeypatch):
+    _block_dms(monkeypatch)
+    mock_channel = _make_forum_channel()
+    monkeypatch.setattr(bot, "get_channel", lambda _: mock_channel)
+    _patch_feature_service(
+        monkeypatch,
+        bot,
+        lambda title, summary, image=None: FeatureSuggestion(title=title, summary=summary, image=image),
+    )
+
+    await dpytest.message('+suggestfeature "Dark Mode" My summary')
+
+    embed = mock_channel.create_thread.call_args[1]["embed"]
+    assert embed.image.url is None
+
+
+@pytest.mark.asyncio
+async def test_suggestfeature_non_url_falls_through_to_summary(bot, monkeypatch):
+    _block_dms(monkeypatch)
+    mock_channel = _make_forum_channel()
+    monkeypatch.setattr(bot, "get_channel", lambda _: mock_channel)
+    _patch_feature_service(
+        monkeypatch,
+        bot,
+        lambda title, summary, image=None: FeatureSuggestion(title=title, summary=summary, image=image),
+    )
+
+    await dpytest.message('+suggestfeature "Dark Mode" Add dark theme')
+
+    embed = mock_channel.create_thread.call_args[1]["embed"]
+    field_map = {f.name: f.value for f in embed.fields}
+    assert field_map["Summary"] == "Add dark theme"
+    assert embed.image.url is None
+
+
+@pytest.mark.asyncio
+async def test_suggestfeature_attachment_used_when_no_url(bot, monkeypatch):
+    _block_dms(monkeypatch)
+    mock_channel = _make_forum_channel()
+    monkeypatch.setattr(bot, "get_channel", lambda _: mock_channel)
+    _patch_feature_service(
+        monkeypatch,
+        bot,
+        lambda title, summary, image=None: FeatureSuggestion(title=title, summary=summary, image=image),
+    )
+
+    await dpytest.message(
+        '+suggestfeature "Dark Mode" My summary',
+        attachments=["https://cdn.discordapp.com/x.png"],
+    )
+
+    embed = mock_channel.create_thread.call_args[1]["embed"]
+    assert embed.image.url == "https://cdn.discordapp.com/x.png"

@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import discord
 from discord.ext import commands
@@ -9,6 +10,24 @@ from byte_bot.services.feature_suggest_service import create_feature_suggestion
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+
+class ImageURL(commands.Converter):
+    """Convert a command argument to an image URL, or reject it.
+
+    Raising ``BadArgument`` on a non-URL token is deliberate. For an
+    ``Optional[ImageURL]`` parameter, discord.py's prefix parser catches the
+    error, rewinds the string view (``view.undo()``), sets ``image`` to
+    ``None``, and lets the rewound token fall through to the consume-rest
+    ``summary`` parameter. So a URL is captured as the image, and any other
+    word is handed back to the summary instead of being stolen.
+    """
+
+    async def convert(self, ctx: commands.Context, argument: str) -> str:
+        if not argument.startswith("https://"):
+            raise commands.BadArgument("Not an image URL.")
+        return argument
+
 
 class FeatureSuggest(commands.Cog):
     """
@@ -66,9 +85,10 @@ class FeatureSuggest(commands.Cog):
     @commands.hybrid_command(name="suggestfeature", description="Submit a feature suggestion.")
     @app_commands.describe(
         title='The title of your feature. Example (text command use quotes): "Dark Mode"',
-        summary='A short summary describing your feature.'
+        summary='A short summary of your feature. To attach a picture, also pick the optional "image" option.',
+        image='Optional DIRECT image link (must end in .png/.jpg/.gif).'
     )
-    async def suggest_feature(self, ctx: commands.Context, title: str, *, summary: str) -> None:
+    async def suggest_feature(self, ctx: commands.Context, title: str, image: Optional[ImageURL] = None, *, summary: str) -> None:
         """
         Submit a feature suggestion to the forum channel.
 
@@ -84,6 +104,9 @@ class FeatureSuggest(commands.Cog):
                 Multi-word titles in the text commands must be wrapped in quotes.
             summary (str): A brief description of the feature request. Max 1024 
                 characters.
+            image (Optional[ImageURL]): An optional direct image URL to attach to the embed.
+                For prefixed commands, if no URL is provided, the first message attachment
+                will be used if available.
 
         Returns: 
             None: Sends messages directly to Discord channels and/or users.
@@ -92,8 +115,11 @@ class FeatureSuggest(commands.Cog):
             discord.DiscordException: If sending the embed or creating the thread
                 fails due to permissions or other Discord API issues.
         """
+        if image is None and ctx.message.attachments:
+            image = ctx.message.attachments[0].url
+
         try:
-            suggestion = create_feature_suggestion(title, summary)
+            suggestion = create_feature_suggestion(title, summary, image)
         except ValueError as error:
             await self._reply(ctx, str(error))
             return
@@ -114,6 +140,8 @@ class FeatureSuggest(commands.Cog):
         )
         embed.add_field(name="Title", value=f"{suggestion.title}", inline=False)
         embed.add_field(name="Summary", value=f"{suggestion.summary}", inline=False)
+        if suggestion.image:
+            embed.set_image(url=suggestion.image)
         embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=icon_url)
 
         # --- Send embed to forum thread ---
@@ -151,7 +179,10 @@ class FeatureSuggest(commands.Cog):
             None: Sends either an ephemeral message (slash command) or a DM
             (text command) to the user.
         """
-        if isinstance(error, commands.MissingRequiredArgument) and ctx.command.name == "suggestfeature":
+        if ctx.command is None or ctx.command.name != "suggestfeature":
+            return
+
+        if isinstance(error, commands.MissingRequiredArgument):
             message = (
                 "❌ You must provide both a **title** and a **summary**.\n\n"
                     "**How to use:**\n"
@@ -160,6 +191,11 @@ class FeatureSuggest(commands.Cog):
                     "Make sure to put quotes around multi-word titles for text commands!"
             )
             await self._reply(ctx, message)
+        elif isinstance(error, commands.BadArgument):
+            await self._reply(
+                ctx,
+                "❌ The **image** option must be a direct image link starting with https://.",
+            )
 
 async def setup(bot: ByteBot):
     await bot.add_cog(FeatureSuggest(bot))

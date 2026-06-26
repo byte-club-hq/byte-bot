@@ -71,6 +71,37 @@ class DatabaseService:
                     """
                 )
 
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS youtube_tracker_state (
+                        id INTEGER PRIMARY KEY CHECK (id = 1),
+                        uploads_playlist_id TEXT,
+                        last_video_id TEXT,
+                        last_published_at TEXT,
+                        quota_date TEXT,
+                        estimated_quota_used INTEGER NOT NULL DEFAULT 0,
+                        quota_paused_until TEXT
+                    )
+                    """
+                )
+
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS youtube_processed_videos (
+                        video_id TEXT PRIMARY KEY,
+                        published_at TEXT NOT NULL,
+                        processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO youtube_tracker_state (id)
+                    VALUES (1)
+                    """
+                )
+
     def upsert_user(
         self,
         *,
@@ -123,3 +154,100 @@ class DatabaseService:
             discord_username=row["discord_username"],
             leetcode_username=row["leetcode_username"],
         )
+
+    def get_youtube_tracker_state(self) -> sqlite3.Row:
+        with self.get_connection() as connection:
+            return connection.execute(
+                """
+                SELECT uploads_playlist_id, last_video_id, last_published_at,
+                       quota_date, estimated_quota_used, quota_paused_until
+                FROM youtube_tracker_state
+                WHERE id = 1
+                """
+            ).fetchone()
+
+    def update_youtube_tracker_state(
+        self,
+        *,
+        uploads_playlist_id: str | None = None,
+        last_video_id: str | None = None,
+        last_published_at: str | None = None,
+        quota_date: str | None = None,
+        estimated_quota_used: int | None = None,
+        quota_paused_until: str | None = None,
+        update_quota_paused_until: bool = False,
+    ) -> None:
+        with self.get_connection() as connection:
+            with connection:
+                connection.execute(
+                    """
+                    UPDATE youtube_tracker_state
+                    SET uploads_playlist_id = COALESCE(?, uploads_playlist_id),
+                        last_video_id = COALESCE(?, last_video_id),
+                        last_published_at = COALESCE(?, last_published_at),
+                        quota_date = COALESCE(?, quota_date),
+                        estimated_quota_used = COALESCE(?, estimated_quota_used),
+                        quota_paused_until = CASE WHEN ? THEN ? ELSE quota_paused_until END
+                    WHERE id = 1
+                    """,
+                    (
+                        uploads_playlist_id,
+                        last_video_id,
+                        last_published_at,
+                        quota_date,
+                        estimated_quota_used,
+                        update_quota_paused_until,
+                        quota_paused_until,
+                    ),
+                )
+
+    def reset_youtube_quota_if_needed(self, quota_date: str) -> None:
+        state = self.get_youtube_tracker_state()
+        if state["quota_date"] == quota_date:
+            return
+
+        self.update_youtube_tracker_state(
+            quota_date=quota_date,
+            estimated_quota_used=0,
+            quota_paused_until=None,
+            update_quota_paused_until=True,
+        )
+
+    def increment_youtube_quota(self, quota_date: str, units: int = 1) -> int:
+        self.reset_youtube_quota_if_needed(quota_date)
+        with self.get_connection() as connection:
+            with connection:
+                connection.execute(
+                    """
+                    UPDATE youtube_tracker_state
+                    SET estimated_quota_used = estimated_quota_used + ?
+                    WHERE id = 1
+                    """,
+                    (units,),
+                )
+                row = connection.execute(
+                    """
+                    SELECT estimated_quota_used
+                    FROM youtube_tracker_state
+                    WHERE id = 1
+                    """
+                ).fetchone()
+
+        return row["estimated_quota_used"]
+
+    def get_youtube_processed_video_ids(self) -> set[str]:
+        with self.get_connection() as connection:
+            rows = connection.execute("SELECT video_id FROM youtube_processed_videos").fetchall()
+
+        return {row["video_id"] for row in rows}
+
+    def mark_youtube_video_processed(self, video_id: str, published_at: str) -> None:
+        with self.get_connection() as connection:
+            with connection:
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO youtube_processed_videos (video_id, published_at)
+                    VALUES (?, ?)
+                    """,
+                    (video_id, published_at),
+                )

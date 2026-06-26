@@ -33,8 +33,15 @@ To get started with developing Byte Bot locally, follow these steps:
          ```bash
          DISCORD_TOKEN=your_discord_bot_token_here
          FEATURE_FORUM_CHANNEL_ID=123456789012345678
+         SOCIAL_TRACKER_CHANNEL_ID=123456789012345678
+         YOUTUBE_CHANNEL_ID=UCxxxxxxxxxxxxxxxxxxxxxx
+         YOUTUBE_API_KEY=your_youtube_data_api_key_here
+         TIKTOK_USERNAME=byteclub
+         INTERVAL=900
          DATABASE_PATH=database/byte_bot.db
          ```
+         `YOUTUBE_CHANNEL_ID` must be the raw channel ID, not a handle or YouTube URL.
+         `INTERVAL` is shared by YouTube and TikTok and is measured in seconds.
 
     3. **WARNING**: This token is unique to YOU and YOU ONLY. DO NOT commit this token to the repo, or you risk exposing
        your bot

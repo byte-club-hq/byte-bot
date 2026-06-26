@@ -29,6 +29,40 @@ def test_database_service_initializes_role_toggle_role_id_column(database_path):
     assert "role_id" in {column["name"] for column in columns}
 
 
+def test_database_service_initializes_youtube_tracker_tables(database_path):
+    database_service = DatabaseService(database_path)
+
+    with database_service.get_connection() as connection:
+        tables = {
+            row["name"]
+            for row in connection.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'table'
+                """
+            ).fetchall()
+        }
+
+    assert "youtube_tracker_state" in tables
+    assert "youtube_processed_videos" in tables
+
+
+def test_database_service_updates_youtube_tracker_state(database_path):
+    database_service = DatabaseService(database_path)
+
+    database_service.update_youtube_tracker_state(
+        uploads_playlist_id="UU123",
+        last_video_id="abc123",
+        last_published_at="2026-06-25T00:00:00Z",
+    )
+    state = database_service.get_youtube_tracker_state()
+
+    assert state["uploads_playlist_id"] == "UU123"
+    assert state["last_video_id"] == "abc123"
+    assert state["last_published_at"] == "2026-06-25T00:00:00Z"
+
+
 def test_database_service_upserts_and_reads_user(database_path):
     database_service = DatabaseService(database_path)
 

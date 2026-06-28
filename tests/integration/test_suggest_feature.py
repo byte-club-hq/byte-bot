@@ -255,3 +255,24 @@ async def test_suggestfeature_attachment_used_when_no_url(bot, monkeypatch):
 
     embed = mock_channel.create_thread.call_args[1]["embed"]
     assert embed.image.url == "https://cdn.discordapp.com/x.png"
+
+
+@pytest.mark.asyncio
+async def test_suggestfeature_long_summary_split_across_fields(bot, monkeypatch):
+    _block_dms(monkeypatch)
+    mock_channel = _make_forum_channel()
+    monkeypatch.setattr(bot, "get_channel", lambda _: mock_channel)
+    _patch_feature_service(
+        monkeypatch,
+        bot,
+        lambda title, summary, image=None: FeatureSuggestion(title=title, summary=summary, image=image),
+    )
+
+    summary = " ".join(["word"] * 300)  # ~1499 chars, forces multiple chunks
+    await dpytest.message(f'+suggestfeature "Dark Mode" {summary}')
+
+    embed = mock_channel.create_thread.call_args[1]["embed"]
+    summary_fields = [f for f in embed.fields if f.name in ("Summary", "​")]
+    assert len(summary_fields) > 1
+    assert all(len(f.value) <= 1024 for f in summary_fields)
+    assert " ".join(f.value for f in summary_fields) == summary

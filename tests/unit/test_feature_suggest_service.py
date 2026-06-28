@@ -30,9 +30,26 @@ def test_create_feature_suggestion_allows_max_summary_length():
     assert result.summary == "B" * 1024
 
 
-def test_create_feature_suggestion_raises_for_summary_too_long():
-    with pytest.raises(ValueError, match="The summary cannot exceed 1024 characters."):
-        create_feature_suggestion("Dark Mode", "B" * 1025)
+def test_chunk_short_summary_is_single():
+    result = create_feature_suggestion("Dark Mode", "Add a dark theme.")
+
+    assert result.summary_chunked == ["Add a dark theme."]
+
+
+def test_chunk_long_summary_splits_into_max_1024():
+    summary = " ".join(["word"] * 300)
+    result = create_feature_suggestion("Dark Mode", summary)
+
+    assert len(result.summary_chunked) > 1
+    assert all(len(c) <= 1024 for c in result.summary_chunked)
+    assert " ".join(result.summary_chunked) == summary
+
+
+def test_chunk_empty_summary_does_not_crash():
+    result = create_feature_suggestion("Dark Mode", "")
+
+    assert result.summary_chunked == [""]
+
 
 
 async def test_imageurl_converter_raises_for_non_url():

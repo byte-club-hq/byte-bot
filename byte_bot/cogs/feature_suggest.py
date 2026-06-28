@@ -139,7 +139,8 @@ class FeatureSuggest(commands.Cog):
             color=discord.Color.brand_red(),
         )
         embed.add_field(name="Title", value=f"{suggestion.title}", inline=False)
-        embed.add_field(name="Summary", value=f"{suggestion.summary}", inline=False)
+        for i, chunk in enumerate(suggestion.summary_chunked):
+            embed.add_field(name="Summary" if i == 0 else "​", value=chunk, inline=False)
         if suggestion.image:
             embed.set_image(url=suggestion.image)
         embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=icon_url)

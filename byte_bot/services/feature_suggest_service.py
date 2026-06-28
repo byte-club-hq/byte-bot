@@ -1,12 +1,11 @@
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
 class FeatureSuggestion:
     title: str
     summary: str
-    image: Optional[str] = None
+    image: str | None = None
 
     def __post_init__(self):
         if len(self.title) > 256:
@@ -18,5 +17,5 @@ class FeatureSuggestion:
                 raise ValueError("Image URL must be a direct link starting with http:// or https://")
 
 
-def create_feature_suggestion(title: str, summary: str, image: Optional[str] = None) -> FeatureSuggestion:
+def create_feature_suggestion(title: str, summary: str, image: str | None = None) -> FeatureSuggestion:
     return FeatureSuggestion(title=title, summary=summary, image=image)

@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Annotated
 
 import discord
 from discord.ext import commands
@@ -16,7 +16,7 @@ class ImageURL(commands.Converter):
     """Convert a command argument to an image URL, or reject it.
 
     Raising ``BadArgument`` on a non-URL token is deliberate. For an
-    ``Optional[ImageURL]`` parameter, discord.py's prefix parser catches the
+    ``ImageURL | None`` parameter, discord.py's prefix parser catches the
     error, rewinds the string view (``view.undo()``), sets ``image`` to
     ``None``, and lets the rewound token fall through to the consume-rest
     ``summary`` parameter. So a URL is captured as the image, and any other
@@ -24,7 +24,7 @@ class ImageURL(commands.Converter):
     """
 
     async def convert(self, ctx: commands.Context, argument: str) -> str:
-        if not argument.startswith("https://"):
+        if not argument.startswith(("http://", "https://")):
             raise commands.BadArgument("Not an image URL.")
         return argument
 
@@ -88,7 +88,7 @@ class FeatureSuggest(commands.Cog):
         summary='A short summary of your feature. To attach a picture, also pick the optional "image" option.',
         image='Optional DIRECT image link (must end in .png/.jpg/.gif).'
     )
-    async def suggest_feature(self, ctx: commands.Context, title: str, image: Optional[ImageURL] = None, *, summary: str) -> None:
+    async def suggest_feature(self, ctx: commands.Context, title: str, image: Annotated[str, ImageURL] | None, *, summary: str) -> None:
         """
         Submit a feature suggestion to the forum channel.
 
@@ -194,7 +194,7 @@ class FeatureSuggest(commands.Cog):
         elif isinstance(error, commands.BadArgument):
             await self._reply(
                 ctx,
-                "❌ The **image** option must be a direct image link starting with https://.",
+                "❌ The **image** option must be a direct image link starting with http:// or https://.",
             )
 
 async def setup(bot: ByteBot):

@@ -1,6 +1,9 @@
 import pytest
 
+from discord.ext import commands
+
 from byte_bot.services.feature_suggest_service import create_feature_suggestion
+from byte_bot.cogs.feature_suggest import ImageURL
 
 
 def test_create_feature_suggestion_returns_dataclass_for_valid_input():
@@ -27,6 +30,66 @@ def test_create_feature_suggestion_allows_max_summary_length():
     assert result.summary == "B" * 1024
 
 
-def test_create_feature_suggestion_raises_for_summary_too_long():
-    with pytest.raises(ValueError, match="The summary cannot exceed 1024 characters."):
-        create_feature_suggestion("Dark Mode", "B" * 1025)
+def test_chunk_short_summary_is_single():
+    result = create_feature_suggestion("Dark Mode", "Add a dark theme.")
+
+    assert result.summary_chunked == ["Add a dark theme."]
+
+
+def test_chunk_long_summary_splits_into_max_1024():
+    summary = " ".join(["word"] * 300)
+    result = create_feature_suggestion("Dark Mode", summary)
+
+    assert len(result.summary_chunked) > 1
+    assert all(len(c) <= 1024 for c in result.summary_chunked)
+    assert " ".join(result.summary_chunked) == summary
+
+
+def test_chunk_empty_summary_does_not_crash():
+    result = create_feature_suggestion("Dark Mode", "")
+
+    assert result.summary_chunked == [""]
+
+
+
+async def test_imageurl_converter_raises_for_non_url():
+    converter = ImageURL()
+    with pytest.raises(commands.BadArgument):
+        await converter.convert(None, "not-a-url")
+
+
+async def test_imageurl_converter_returns_url_for_http():
+    converter = ImageURL()
+    result = await converter.convert(None, "http://thread.com/image.png")
+
+    assert result == "http://thread.com/image.png"
+
+
+async def test_imageurl_converter_returns_url_for_https():
+    converter = ImageURL()
+    result = await converter.convert(None, "https://thread.com/image.png")
+
+    assert result == "https://thread.com/image.png"
+
+
+def test_create_feature_suggestion_defaults_image_to_none():
+    result = create_feature_suggestion("Dark Mode", "Add a dark theme.")
+
+    assert result.image is None
+
+
+def test_create_feature_suggestion_stores_https_image_url():
+    result = create_feature_suggestion("Dark Mode", "Add a dark theme.", "https://thread.com/image.png")
+
+    assert result.image == "https://thread.com/image.png"
+
+
+def test_create_feature_suggestion_stores_http_image_url():
+    result = create_feature_suggestion("Dark Mode", "Add a dark theme.", "http://thread.com/image.png")
+
+    assert result.image == "http://thread.com/image.png"
+
+
+def test_create_feature_suggestion_raises_for_invalid_scheme():
+    with pytest.raises(ValueError, match="Image URL must be a direct"):
+        create_feature_suggestion("Dark Mode", "Short summary", "ftp://thread.com/image.png")

@@ -5,5 +5,3 @@ services:
       - ".env"
     volumes:
       - ./database:/app/database
-    environment:
-      - DISCORD_TOKEN=${DISCORD_TOKEN}

@@ -1,7 +1,10 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 import sqlite3
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -24,7 +27,13 @@ class DatabaseService:
         if not self._is_uri and self.database_path != ":memory:":
             Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
 
-        connection = sqlite3.connect(self.database_path, uri=self._is_uri)
+        try:
+            connection = sqlite3.connect(self.database_path, uri=self._is_uri)
+        except sqlite3.OperationalError as exc:
+            raise sqlite3.OperationalError(
+                f"Unable to open SQLite database at {self.database_path!r}. "
+                "Check that the path is writable and, in Docker, mounted where you expect."
+            ) from exc
         connection.row_factory = sqlite3.Row
         return connection
 
@@ -38,6 +47,9 @@ class DatabaseService:
 
     def initialize(self) -> None:
         # Safe to call on every startup; this only creates the table if it's missing.
+        if not self._is_uri and self.database_path != ":memory:":
+            log.info("Initializing SQLite database at %s", Path(self.database_path).resolve())
+
         with self.get_connection() as connection:
             with connection:
                 connection.execute(
@@ -83,6 +95,9 @@ class DatabaseService:
                     )
                     """
                 )
+
+        if not self._is_uri and self.database_path != ":memory:":
+            log.info("SQLite database ready at %s", Path(self.database_path).resolve())
 
     def upsert_user(
         self,

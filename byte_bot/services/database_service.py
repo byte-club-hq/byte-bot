@@ -10,6 +10,10 @@ class UserRecord:
     discord_username: str
     leetcode_username: str | None = None
 
+@dataclass
+class ReminderChannel:
+    id: int
+    name: str
 
 class DatabaseService:
     def __init__(self, database_path: str):
@@ -39,37 +43,59 @@ class DatabaseService:
     def initialize(self) -> None:
         # Safe to call on every startup; this only creates the table if it's missing.
         with self.get_connection() as connection:
-            with connection:
-                connection.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS users (
-                        user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        discord_username TEXT NOT NULL,
-                        leetcode_username TEXT
-                    )
-                    """
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    discord_username TEXT NOT NULL,
+                    leetcode_username TEXT
                 )
+                """
+            )
 
-                connection.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS role_toggle_panels (
-                        guild_id INTEGER NOT NULL,
-                        message_id INTEGER,
-                        role_id INTEGER,
-                        role_name TEXT NOT NULL,
-                        emoji TEXT NOT NULL,
-                        title TEXT NOT NULL,
-                        PRIMARY KEY (guild_id, role_name)
-                    )
-                    """
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS role_toggle_panels (
+                    guild_id INTEGER NOT NULL,
+                    message_id INTEGER,
+                    role_id INTEGER,
+                    role_name TEXT NOT NULL,
+                    emoji TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    PRIMARY KEY (guild_id, role_name)
                 )
+                """
+            )
 
-                connection.execute(
-                    """
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_role_toggle_panels_message
-                    ON role_toggle_panels (guild_id, message_id, emoji)
-                    """
+            connection.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_role_toggle_panels_message
+                ON role_toggle_panels (guild_id, message_id, emoji)
+                """
+            )
+
+            # Create if not exists reminder channel
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reminder_channels (
+                    channel_id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL
                 )
+                """
+            )
+
+            # Create if not exists reminders
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reminders (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_id INTEGER,
+                    event_name TEXT,
+                    reminder_minutes INTEGER,
+                    event_start INTEGER NOT NULL
+                )
+                """
+            )
 
     def upsert_user(
         self,
@@ -123,3 +149,20 @@ class DatabaseService:
             discord_username=row["discord_username"],
             leetcode_username=row["leetcode_username"],
         )
+
+    def get_reminder_channels(self) -> list[ReminderChannel]:
+        channels = []
+        with self.get_connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM reminders"
+            )
+
+            if not rows:
+                return channels
+            
+            for row in rows:
+                channels.append(ReminderChannel(
+                    id=row[0],
+                    name=row[1]
+                ))
+        return channels

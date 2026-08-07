@@ -18,7 +18,7 @@ class EventsCog(commands.Cog):
     )
     def __init__(self, bot: ByteBot):
         """
-        Initialize the FeatureSuggest cog.
+        Initialize the Events cog.
 
         Args:
             bot (ByteBot): The bot instance. Must have the attribute `feature_forum_channel_id` set.
@@ -32,7 +32,7 @@ class EventsCog(commands.Cog):
     async def list_events(self, interaction: discord.Interaction):
         await interaction.response.defer()
         guild = interaction.guild
-        
+
         if guild is None:
             return
 
@@ -70,7 +70,8 @@ class EventsCog(commands.Cog):
                  value=(
                     f"⏱️ <t:{timestamp}:F>\n"
                     f"🔗 {event.url}\n\n"
-                 )
+                 ),
+                 inline=False,
             )
 
         await interaction.followup.send(embed=embed)

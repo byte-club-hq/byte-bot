@@ -1,0 +1,38 @@
+name: Continuous Integration
+
+on:
+  push: 
+    branches:
+      - main
+  pull_request:
+    branches: 
+      - main
+
+jobs:
+  test-lint:
+    runs-on:
+      - self-hosted
+      - docker
+    steps:
+    - name: Download repo code
+      uses: actions/checkout@v4
+    
+    - name: Setup uv env
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+    
+    - name: Sync dependecies
+      run: uv sync --frozen
+
+    - name: Lint checkout
+      run: |
+        uv run ruff check .
+
+    # Enable when format review is needed
+    # - name: Format check
+    #     run: uv run ruff format --check .
+    
+    - name: Run tests
+      run: |
+        uv run python -m pytest

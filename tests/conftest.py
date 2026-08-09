@@ -24,9 +24,10 @@ def database_path(tmp_path):
 async def bot(database_path):
     test_config = SimpleNamespace(
         FEATURE_FORUM_CHANNEL_ID=1234567890,
-        DATABASE_PATH=database_path,
         ROLE_CHANNEL_ID=9876543210,
     )
+    original_database_path = ByteBot.DATABASE_PATH
+    ByteBot.DATABASE_PATH = Path(database_path)
     bot = ByteBot(config=test_config)
     dpytest.configure(bot)
     
@@ -41,4 +42,5 @@ async def bot(database_path):
     try:
         yield bot
     finally:
+        ByteBot.DATABASE_PATH = original_database_path
         await dpytest.empty_queue()

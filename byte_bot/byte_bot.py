@@ -26,6 +26,8 @@ class ByteBot(commands.Bot):
     load cogs, etc.
     """
 
+    DATABASE_PATH = Path(__file__).resolve().parents[1] / "database" / "byte_bot.db"
+
     def __init__(self, config):
         super().__init__(
             intents=INTENTS,
@@ -39,7 +41,7 @@ class ByteBot(commands.Bot):
 
         self.config = config
         self.feature_forum_channel_id = self.config.FEATURE_FORUM_CHANNEL_ID
-        self.database_service = DatabaseService(self.config.DATABASE_PATH)
+        self.database_service = DatabaseService(str(self.DATABASE_PATH))
         # Recording start time for uptime tracking
         self.start_time = datetime.now(timezone.utc)
 

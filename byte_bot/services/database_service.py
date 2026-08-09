@@ -1,7 +1,10 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 import sqlite3
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -14,17 +17,18 @@ class UserRecord:
 class DatabaseService:
     def __init__(self, database_path: str):
         self.database_path = database_path
-        # sqlite treats values like "file:..." as connection URIs, not plain file paths.
-        self._is_uri = database_path.startswith("file:")
         self.initialize()
 
     def _create_connection(self) -> sqlite3.Connection:
-        # ":memory:" tells sqlite to keep everything in RAM for this connection only,
-        # so there is no parent directory or database file to create on disk.
-        if not self._is_uri and self.database_path != ":memory:":
-            Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
 
-        connection = sqlite3.connect(self.database_path, uri=self._is_uri)
+        try:
+            connection = sqlite3.connect(self.database_path)
+        except sqlite3.OperationalError as exc:
+            raise sqlite3.OperationalError(
+                f"Unable to open SQLite database at {self.database_path!r}. "
+                "Check that the path is writable and, in Docker, mounted where you expect."
+            ) from exc
         connection.row_factory = sqlite3.Row
         return connection
 
@@ -38,6 +42,8 @@ class DatabaseService:
 
     def initialize(self) -> None:
         # Safe to call on every startup; this only creates the table if it's missing.
+        log.info("Initializing SQLite database at %s", Path(self.database_path).resolve())
+
         with self.get_connection() as connection:
             with connection:
                 connection.execute(
@@ -70,6 +76,21 @@ class DatabaseService:
                     ON role_toggle_panels (guild_id, message_id, emoji)
                     """
                 )
+
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS role_toggle_memberships (
+                        guild_id INTEGER NOT NULL,
+                        role_id INTEGER NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        should_have_role INTEGER NOT NULL,
+                        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (guild_id, role_id, user_id)
+                    )
+                    """
+                )
+
+        log.info("SQLite database ready at %s", Path(self.database_path).resolve())
 
     def upsert_user(
         self,

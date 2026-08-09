@@ -1,6 +1,5 @@
 import logging
 import os
-from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -13,12 +12,6 @@ log = logging.getLogger(__name__)
 def get_config() -> Config:
     discord_token = os.environ.get("DISCORD_TOKEN")
     forum_channel_id_str = os.environ.get("FEATURE_FORUM_CHANNEL_ID")
-
-    # Keep a local sqlite file by default so the bot can start without extra setup.
-    database_path = os.environ.get("DATABASE_PATH") or str(
-        Path(__file__).resolve().parents[1] / "database" / "byte_bot.db"
-    )
-
     role_channel_id_str = os.environ.get("ROLE_CHANNEL_ID")
 
     if not discord_token:  # Ensure the token is set before proceeding
@@ -41,7 +34,6 @@ def get_config() -> Config:
     return Config(
         DISCORD_TOKEN=discord_token,
         FEATURE_FORUM_CHANNEL_ID=forum_channel_id,
-        DATABASE_PATH=database_path,
         ROLE_CHANNEL_ID=role_channel_id,
     )
 

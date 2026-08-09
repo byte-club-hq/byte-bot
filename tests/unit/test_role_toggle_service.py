@@ -82,3 +82,38 @@ def test_role_toggle_service_deletes_panel(database_path):
     service.delete_panel(guild_id=123, role_name="ByteClubHQ")
 
     assert service.get_panel(123, role_name="ByteClubHQ") is None
+
+
+def test_role_toggle_service_tracks_membership_state(database_path):
+    service = RoleToggleService(DatabaseService(database_path))
+
+    service.set_membership(guild_id=123, role_id=456, user_id=789, should_have_role=True)
+    service.set_membership(guild_id=123, role_id=456, user_id=999, should_have_role=False)
+
+    memberships = service.list_memberships(guild_id=123, role_id=456)
+
+    assert [membership.user_id for membership in memberships] == [789, 999]
+    assert memberships[0].should_have_role is True
+    assert memberships[1].should_have_role is False
+
+
+def test_role_toggle_service_updates_membership_state(database_path):
+    service = RoleToggleService(DatabaseService(database_path))
+
+    service.set_membership(guild_id=123, role_id=456, user_id=789, should_have_role=True)
+    service.set_membership(guild_id=123, role_id=456, user_id=789, should_have_role=False)
+
+    [membership] = service.list_memberships(guild_id=123, role_id=456)
+
+    assert membership.should_have_role is False
+
+
+def test_role_toggle_service_deletes_memberships_for_role(database_path):
+    service = RoleToggleService(DatabaseService(database_path))
+    service.set_membership(guild_id=123, role_id=456, user_id=789, should_have_role=True)
+    service.set_membership(guild_id=123, role_id=999, user_id=789, should_have_role=True)
+
+    service.delete_memberships(guild_id=123, role_id=456)
+
+    assert service.list_memberships(guild_id=123, role_id=456) == []
+    assert len(service.list_memberships(guild_id=123, role_id=999)) == 1

@@ -63,9 +63,7 @@ class RoleToggleCog(commands.Cog):
 
         channel = await self._get_text_channel(self._role_channel_id)
         if channel is None:
-            log.warning(
-                "ROLE_CHANNEL_ID %s is not a usable text channel; skipping role-toggle setup", self._role_channel_id
-            )
+            log.warning(f"ROLE_CHANNEL_ID {self._role_channel_id} is not a usable text channel; skipping role-toggle setup")
             return
 
         await self._setup_role_toggle_panels(channel.guild, channel)
@@ -84,17 +82,17 @@ class RoleToggleCog(commands.Cog):
                     title=DEFAULT_TOGGLE_TITLE,
                 )
             except discord.Forbidden:
-                log.error("Missing permissions to create default role-toggle panel in guild '%s'", guild.name)
+                log.error(f"Missing permissions to create default role-toggle panel in guild '{guild.name}'")
             except Exception:
-                log.exception("Failed to create default role-toggle panel in guild '%s'", guild.name)
+                log.exception(f"Failed to create default role-toggle panel in guild '{guild.name}'")
 
         for panel in existing_panels:
             try:
                 await self._update_existing_panel(guild, channel, panel)
             except discord.Forbidden:
-                log.error("Missing permissions to set up role-toggle panel in guild '%s'", guild.name)
+                log.error(f"Missing permissions to set up role-toggle panel in guild '{guild.name}'")
             except Exception:
-                log.exception("Failed to set up role-toggle panel in guild '%s'", guild.name)
+                log.exception(f"Failed to set up role-toggle panel in guild '{guild.name}'")
 
     async def _get_text_channel(self, channel_id: int) -> discord.TextChannel | None:
         channel = self.bot.get_channel(channel_id)
@@ -116,9 +114,9 @@ class RoleToggleCog(commands.Cog):
         try:
             return await self.bot.fetch_guild(guild_id)
         except discord.NotFound:
-            log.warning("Guild %s was not found while handling a role-toggle reaction", guild_id)
+            log.warning(f"Guild {guild_id} was not found while handling a role-toggle reaction")
         except discord.HTTPException:
-            log.exception("Failed to fetch guild %s while handling a role-toggle reaction", guild_id)
+            log.exception(f"Failed to fetch guild {guild_id} while handling a role-toggle reaction")
         return None
 
     async def _create_panel_role(self, guild: discord.Guild, role_name: str) -> discord.Role:
@@ -129,7 +127,7 @@ class RoleToggleCog(commands.Cog):
             return matching_roles[0]
 
         role = await guild.create_role(name=role_name, mentionable=True)
-        log.info("Created role '%s' in guild '%s'", role_name, guild.name)
+        log.info(f"Created role '{role_name}' in guild '{guild.name}'")
         return role
 
     async def _resolve_panel_role(self, guild: discord.Guild, panel: RoleTogglePanel) -> discord.Role:
@@ -139,26 +137,20 @@ class RoleToggleCog(commands.Cog):
                 return role
 
             log.warning(
-                "Stored Discord role id %s for panel '%s' was not found in guild '%s'; recreating/rebinding role",
-                panel.role_id,
-                panel.role_name,
-                guild.name,
+                f"Stored Discord role id {panel.role_id} for panel '{panel.role_name}' was not found in guild '{guild.name}'; recreating/rebinding role"
             )
 
         return await self._create_panel_role(guild, panel.role_name)
 
     def _get_panel_role(self, guild: discord.Guild, panel: RoleTogglePanel) -> discord.Role | None:
         if panel.role_id is None:
-            log.warning("Role-toggle panel '%s' has no stored Discord role id", panel.role_name)
+            log.warning(f"Role-toggle panel '{panel.role_name}' has no stored Discord role id")
             return None
 
         role = guild.get_role(panel.role_id)
         if role is None:
             log.warning(
-                "Stored Discord role id %s for panel '%s' was not found in guild '%s'",
-                panel.role_id,
-                panel.role_name,
-                guild.name,
+                f"Stored Discord role id {panel.role_id} for panel '{panel.role_name}' was not found in guild '{guild.name}'",
             )
         return role
 
@@ -223,7 +215,7 @@ class RoleToggleCog(commands.Cog):
             )
 
         if panel.message_id is None:
-            log.warning("Role-toggle panel '%s' has no stored Discord message id", panel.role_name)
+            log.warning(f"Role-toggle panel '{panel.role_name}' has no stored Discord message id")
             return False
 
         embed = _build_role_toggle_embed(title=panel.title, role_name=role.name, emoji=panel.emoji)
@@ -231,23 +223,53 @@ class RoleToggleCog(commands.Cog):
         try:
             message = await channel.fetch_message(panel.message_id)
         except discord.NotFound:
-            log.warning("Stored role-toggle message %s for panel '%s' was not found", panel.message_id, panel.role_name)
+            log.warning(f"Stored role-toggle message {panel.message_id} for panel '{panel.role_name}' was not found")
             return False
         except discord.Forbidden:
-            log.error("Forbidden fetching role-toggle message %s in #%s", panel.message_id, channel.name)
+            log.error(f"Forbidden fetching role-toggle message {panel.message_id} in #{channel.name}")
             return False
         except discord.HTTPException:
-            log.exception("HTTP error fetching role-toggle message %s in #%s", panel.message_id, channel.name)
+            log.exception(f"HTTP error fetching role-toggle message {panel.message_id} in #{channel.name}")
             return False
 
         await message.edit(embed=embed)
         try:
             await message.add_reaction(panel.emoji)
         except discord.HTTPException:
-            log.exception("Could not add reaction %s to role-toggle message %s", panel.emoji, message.id)
+            log.exception(f"Could not add reaction {panel.emoji} to role-toggle message {message.id}")
             raise
 
+        await self._sync_panel_memberships(guild, panel)
         return True
+
+    async def _sync_panel_memberships(self, guild: discord.Guild, panel: RoleTogglePanel) -> None:
+        role = self._get_panel_role(guild, panel)
+        if role is None:
+            return
+
+        # ponytail: sync only cached users; add a manual full reconciliation command if Discord is edited outside the bot.
+        for membership in self.service.list_memberships(guild_id=guild.id, role_id=role.id):
+            member = guild.get_member(membership.user_id)
+            if member is None:
+                try:
+                    member = await guild.fetch_member(membership.user_id)
+                except discord.NotFound:
+                    log.info(f"Cached role-toggle user {membership.user_id} is no longer in guild '{guild.name}'")
+                    continue
+                except discord.HTTPException:
+                    log.warning(f"Could not fetch cached role-toggle user {membership.user_id} in guild '{guild.name}'")
+                    continue
+
+            has_role = role in member.roles
+            try:
+                if membership.should_have_role and not has_role:
+                    await member.add_roles(role, reason="Role-toggle startup sync")
+                elif not membership.should_have_role and has_role:
+                    await member.remove_roles(role, reason="Role-toggle startup sync")
+            except discord.Forbidden:
+                log.error(f"Missing permissions to sync '{panel.role_name}' for user {membership.user_id}")
+            except discord.HTTPException:
+                log.exception(f"Discord rejected sync for '{panel.role_name}' and user {membership.user_id}")
 
     @commands.hybrid_command(
         name="roletoggle_status", description="Show the role-toggle configuration for this server."
@@ -408,7 +430,7 @@ class RoleToggleCog(commands.Cog):
             except discord.NotFound:
                 pass
             except discord.HTTPException:
-                log.exception("Failed deleting role-toggle message %s", panel.message_id)
+                log.exception(f"Failed deleting role-toggle message {panel.message_id}")
 
         if delete_discord_role:
             # This deletes the real Discord role (removes it from everyone).
@@ -421,6 +443,8 @@ class RoleToggleCog(commands.Cog):
                 except discord.HTTPException:
                     await self._reply(ctx, "Deleted config, but failed to delete the Discord role (HTTP error).")
 
+        if panel.role_id is not None:
+            self.service.delete_memberships(guild_id=ctx.guild.id, role_id=panel.role_id)
         self.service.delete_panel(guild_id=ctx.guild.id, role_name=panel.role_name)
         await self._reply(ctx, f"Deleted role-toggle panel for role `{panel.role_name}`.")
 
@@ -436,7 +460,7 @@ class RoleToggleCog(commands.Cog):
     ) -> None:
         role = self._get_panel_role(guild, panel)
         if role is None:
-            log.warning("Role '%s' does not exist in guild '%s'", panel.role_name, guild.name)
+            log.warning(f"Role '{panel.role_name}' does not exist in guild '{guild.name}'")
             return
 
         member = guild.get_member(user_id)
@@ -444,8 +468,15 @@ class RoleToggleCog(commands.Cog):
             try:
                 member = await guild.fetch_member(user_id)
             except discord.HTTPException:
-                log.warning("Could not fetch member %s in guild '%s'", user_id, guild.name)
+                log.warning(f"Could not fetch member {user_id} in guild '{guild.name}'")
                 return
+
+        self.service.set_membership(
+            guild_id=guild.id,
+            role_id=role.id,
+            user_id=user_id,
+            should_have_role=should_have_role,
+        )
 
         has_role = role in member.roles
         if should_have_role and not has_role:
@@ -479,9 +510,9 @@ class RoleToggleCog(commands.Cog):
         try:
             await self._toggle_role_for_member(guild=guild, user_id=payload.user_id, panel=panel, should_have_role=True)
         except discord.Forbidden:
-            log.error("Missing permissions to add '%s' via reactions", panel.role_name)
+            log.error(f"Missing permissions to add '{panel.role_name}' via reactions")
         except Exception:
-            log.exception("Failed to add '%s' via reaction", panel.role_name)
+            log.exception(f"Failed to add '{panel.role_name}' via reaction")
 
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent) -> None:
@@ -509,9 +540,9 @@ class RoleToggleCog(commands.Cog):
                 guild=guild, user_id=payload.user_id, panel=panel, should_have_role=False
             )
         except discord.Forbidden:
-            log.error("Missing permissions to remove '%s' via reactions", panel.role_name)
+            log.error(f"Missing permissions to remove '{panel.role_name}' via reactions")
         except Exception:
-            log.exception("Failed to remove '%s' via reaction", panel.role_name)
+            log.exception(f"Failed to remove '{panel.role_name}' via reaction")
 
 
 async def setup(bot: ByteBot) -> None:

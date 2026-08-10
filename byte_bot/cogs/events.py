@@ -36,7 +36,7 @@ class EventsCog(commands.Cog):
         if guild is None:
             return
 
-        logger.debug("Fetching scheduled evets ...")
+        logger.debug("Fetching scheduled events ...")
         upcoming_events = await guild.fetch_scheduled_events(
             with_counts=False
         )

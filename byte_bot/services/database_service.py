@@ -22,6 +22,7 @@ class Reminder:
     id: int
     event_id: int
     event_name: str
+    url: str
     text: str
     channel_id: int
     reminder_minutes: int
@@ -170,36 +171,40 @@ class DatabaseService:
         )
 
     def get_reminder_channels(self) -> list[ReminderChannel]:
+        """Return a list of all channels for reminder events."""
         channels = []
         with self.get_connection() as connection:
             rows = connection.execute("SELECT channel_id, name FROM reminder_channels").fetchall()
 
             if not rows:
                 return channels
-            print('rows')
-            print(rows)
+
             for row in rows:
                 channels.append(ReminderChannel(id=row[0], name=row[1]))
+
         return channels
 
-    def set_channel_reminder(self, id, name) -> ReminderChannel:
+    def set_channel_reminder(self, channel_id, name) -> ReminderChannel:
+        """Add or update a channel used for event reminders."""
         with self.get_connection() as connection:
             with connection:
-                connection.execute(
+                cursor = connection.execute(
                     """
                     INSERT INTO reminder_channels (channel_id, name)
                     VALUES (?, ?)
                     ON CONFLICT(channel_id) DO UPDATE SET name = excluded.name
                     """,
-                    (id, name),
+                    (channel_id, name),
                 )
+                row = cursor.fetchone()
 
         return ReminderChannel(
-            id=id,
-            name=name,
+            id=row["channel_id"],
+            name=row["name"],
         )
 
-    def remove_channel_reminder(self, id, name) -> bool:
+    def remove_reminder_channel(self, channel_id) -> bool:
+        """Remove a channel from the reminder channel table given the id."""
         with self.get_connection() as connection:
             with connection:
                 cursor = connection.execute(
@@ -207,17 +212,19 @@ class DatabaseService:
                         DELETE FROM reminder_channels
                         WHERE channel_id = ?
                         """,
-                    (id,),
+                    (channel_id,),
                 )
-
+        
         return cursor.rowcount > 0
 
     def get_reminders(self) -> list[Reminder]:
+        """Return a list of reminders scheduled to be sent."""
         reminders = []
+
         with self.get_connection() as connection:
             rows = connection.execute(
                 """
-                SELECT id, event_id, event_name, reminder_minutes, event_start 
+                SELECT id, event_id, event_name, url, text, channel_id, reminder_minutes, event_start
                 FROM reminders
                 WHERE sent_at IS NULL;"
                 """
@@ -225,15 +232,19 @@ class DatabaseService:
 
             if not rows:
                 return reminders
-            print('rows')
-            print(rows)
+
             for row in rows:
                 reminders.append(
-                    Reminder(id=row[0], 
-                             event_id=row[1], 
-                             event_name=row[2], 
-                             reminder_minutes=row[3], 
-                             event_start=row[4])
+                    Reminder(
+                        id=row["id"],
+                        event_id=row["event_id"],
+                        event_name=row["event_name"],
+                        url=row["url"],
+                        text=row["text"],
+                        channel_id=row["channel_id"],
+                        reminder_minutes=row["reminder_minutes"],
+                        event_start=row["event_start"],
+                    )
                 )
 
         return reminders
@@ -247,10 +258,12 @@ class DatabaseService:
         channel_id: int,
         reminder_minutes: int,
         event_start: int,
-    ):
+    ) -> Reminder | None:
+        """Create and return a new envent reminder and return de updated reminder."""
+
         with self.get_connection() as connection:
             with connection:
-                connection.execute(
+                cursor = connection.execute(
                     """
                     INSERT INTO reminders (
                         event_id,
@@ -261,7 +274,9 @@ class DatabaseService:
                         reminder_minutes,
                         event_start
                     )
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    RETURNING id, event_id, event_name, url, text,
+                            channel_id, reminder_minutes, event_start
                     """,
                     (
                         event_id,
@@ -274,74 +289,111 @@ class DatabaseService:
                     ),
                 )
 
+                row = cursor.fetchone()
+
+        if row is None:
+            return None
+        
+        return Reminder(
+            id=row["id"],
+            event_id=row["event_id"],
+            event_name=row["event_name"],
+            url=row["url"],
+            text=row["text"],
+            channel_id=row["channel_id"],
+            reminder_minutes=row["reminder_minutes"],
+            event_start=row["event_start"],
+        )
+        
+
     def mark_reminder_sent(
         self,
         reminder_id: int,
         timestamp: int,
-    ):
+    ) -> Reminder | None:
+        """Mark a reminder as sent and return the updated reminder."""
+
         with self.get_connection() as connection:
             with connection:
-                connection.execute(
+                cursor = connection.execute(
                     """
                         UPDATE reminders 
                         SET sent_at = ?
-                        WHERE id = ?;
+                        WHERE id = ?
+                        RETURNING
+                            id,
+                            event_id,
+                            event_name,
+                            url,
+                            text,
+                            channel_id,
+                            reminder_minutes,
+                            event_start,
+                            sent_at
                         """,
                     (
                         timestamp,
                         reminder_id,
                     ),
                 )
+                row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        return Reminder(
+            id=row["id"],
+            event_id=row["event_id"],
+            event_name=row["event_name"],
+            url=row["url"],
+            text=row["text"],
+            channel_id=row["channel_id"],
+            reminder_minutes=row["reminder_minutes"],
+            event_start=row["event_start"],
+            sent_at=row["sent_at"],
+        )
 
     def update_reminder(self, event_id, timestamp):
+        """Update unsent reminders for an event."""
+        
         with self.get_connection as connection:
             with connection:
-                rows = connection.execute(
+                cursor = connection.execute(
                     """
-                    SELECT id, FROM reminders
-                    WHERE event_id = ?;
-                    """,(event_id)
-                ).fetchall()
-                changes = []
-                for row in rows:
-                    changes.append((timestamp, row))
-                connection.executemany(
-                    """
-                    UPDATE reminders 
+                    UPDATE reminders
                     SET event_start = ?
-                    WHERE id = ?;
+                    WHERE event_id = ?
+                        AND sent_at IS NULL
+                    RETURNING
+                        id,
+                        event_id,
+                        event_name,
+                        url,
+                        text,
+                        channel_id,
+                        reminder_minutes,
+                        event_start,
+                        sent_at
                     """,
-                    (changes),
+                    (
+                        timestamp,
+                        event_id,
+                    ),
                 )
 
-
-#  CREATE TABLE IF NOT EXISTS reminders (
-#                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-#                         event_id INTEGER,
-#                         event_name TEXT,
-#                         reminder_minutes INTEGER,
-#                         event_start INTEGER NOT NULL
-#                     )
-# import sqlite3
-# import logging
-
-# # Configuración básica de logs (puedes usar el de tu app)6
-# logger = logging.getLogger(__name__)
-
-# def remove_channel_reminder(self, id) -> bool:
-#     try:
-#         with self.get_connection() as connection:
-#             with connection:  # Si hay error aquí, hace ROLLBACK automáticamente
-#                 cursor = connection.execute(reminder_channel_id
-#                     """
-#                     DELETE FROM reminder_channels
-#                     WHERE channel_id = ?
-#                     """,
-#                     (id,),
-#                 )
-#                 return cursor.rowcount > 0
-
-#     except sqlite3.Error as e:
-#         # Captura errores como: base de datos bloqueada, archivo corrupto, etc.
-#         logger.error(f"Error de SQLite al eliminar el canal {id}: {e}")
-#         return False  # Devolvemos False porque la operación no tuvo éxito
+                rows = cursor.fetchall()
+        
+        return [
+            Reminder(
+                id=row["id"],
+                event_id=row["event_id"],
+                event_name=row["event_name"],
+                url=row["url"],
+                text=row["text"],
+                channel_id=row["channel_id"],
+                reminder_minutes=row["reminder_minutes"],
+                event_start=row["event_start"],
+                sent_at=row["sent_at"],
+            )
+            for row in rows
+        ]

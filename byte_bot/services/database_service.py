@@ -10,18 +10,24 @@ class UserRecord:
     discord_username: str
     leetcode_username: str | None = None
 
+
 @dataclass
 class ReminderChannel:
     id: int
     name: str
+
 
 @dataclass
 class Reminder:
     id: int
     event_id: int
     event_name: str
+    text: str
+    channel_id: int
     reminder_minutes: int
     event_start: int
+    sent_at: int
+
 
 class DatabaseService:
     def __init__(self, database_path: str):
@@ -100,8 +106,9 @@ class DatabaseService:
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         event_id INTEGER NOT NULL,
                         event_name TEXT NOT NULL,
+                        url TEXT,
                         text TEXT,
-                        reminder_channel_id INTEGER NOT NULL,
+                        channel_id INTEGER NOT NULL,
                         reminder_minutes INTEGER,
                         event_start INTEGER NOT NULL,
                         sent_at INTEGER
@@ -165,19 +172,14 @@ class DatabaseService:
     def get_reminder_channels(self) -> list[ReminderChannel]:
         channels = []
         with self.get_connection() as connection:
-            rows = connection.execute(
-                "SELECT channel_id, name FROM reminder_channels"
-            ).fetchall()
+            rows = connection.execute("SELECT channel_id, name FROM reminder_channels").fetchall()
 
             if not rows:
                 return channels
             print('rows')
             print(rows)
             for row in rows:
-                channels.append(ReminderChannel(
-                    id=row[0],
-                    name=row[1]
-                ))
+                channels.append(ReminderChannel(id=row[0], name=row[1]))
         return channels
 
     def set_channel_reminder(self, id, name) -> ReminderChannel:
@@ -198,23 +200,27 @@ class DatabaseService:
         )
 
     def remove_channel_reminder(self, id, name) -> bool:
-            with self.get_connection() as connection:
-                with connection:
-                    cursor = connection.execute(
-                        """
+        with self.get_connection() as connection:
+            with connection:
+                cursor = connection.execute(
+                    """
                         DELETE FROM reminder_channels
                         WHERE channel_id = ?
                         """,
-                        (id,),
-                    )
-    
-            return cursor.rowcount > 0
+                    (id,),
+                )
+
+        return cursor.rowcount > 0
 
     def get_reminders(self) -> list[Reminder]:
         reminders = []
         with self.get_connection() as connection:
             rows = connection.execute(
-                "SELECT id, event_id, event_name, reminder_minutes, event_start FROM reminders"
+                """
+                SELECT id, event_id, event_name, reminder_minutes, event_start 
+                FROM reminders
+                WHERE sent_at IS NULL;"
+                """
             ).fetchall()
 
             if not rows:
@@ -222,17 +228,26 @@ class DatabaseService:
             print('rows')
             print(rows)
             for row in rows:
-                reminders.append(Reminder(
-                    id=row[0],
-                    event_id=row[1],
-                    event_name=row[2],
-                    reminder_minutes=row[3],
-                    event_start=row[4]
-                ))
+                reminders.append(
+                    Reminder(id=row[0], 
+                             event_id=row[1], 
+                             event_name=row[2], 
+                             reminder_minutes=row[3], 
+                             event_start=row[4])
+                )
 
         return reminders
 
-    def create_reminder(self, event_id: int, event_name: str, reminder_minutes: int, event_start: int):
+    def create_reminder(
+        self,
+        event_id: int,
+        event_name: str,
+        url: str,
+        text: str,
+        channel_id: int,
+        reminder_minutes: int,
+        event_start: int,
+    ):
         with self.get_connection() as connection:
             with connection:
                 connection.execute(
@@ -240,21 +255,65 @@ class DatabaseService:
                     INSERT INTO reminders (
                         event_id,
                         event_name,
+                        url,
                         text,
-                        reminder_channel_id,
+                        channel_id,
                         reminder_minutes,
                         event_start
                     )
                     VALUES (?, ?, ?, ?, ?, ?)
-                    """, (
+                    """,
+                    (
                         event_id,
                         event_name,
+                        url,
                         text,
-                        reminder_channel_id,
+                        channel_id,
                         reminder_minutes,
                         event_start,
-                    )
+                    ),
                 )
+
+    def mark_reminder_sent(
+        self,
+        reminder_id: int,
+        timestamp: int,
+    ):
+        with self.get_connection() as connection:
+            with connection:
+                connection.execute(
+                    """
+                        UPDATE reminders 
+                        SET sent_at = ?
+                        WHERE id = ?;
+                        """,
+                    (
+                        timestamp,
+                        reminder_id,
+                    ),
+                )
+
+    def update_reminder(self, event_id, timestamp):
+        with self.get_connection as connection:
+            with connection:
+                rows = connection.execute(
+                    """
+                    SELECT id, FROM reminders
+                    WHERE event_id = ?;
+                    """,(event_id)
+                ).fetchall()
+                changes = []
+                for row in rows:
+                    changes.append((timestamp, row))
+                connection.executemany(
+                    """
+                    UPDATE reminders 
+                    SET event_start = ?
+                    WHERE id = ?;
+                    """,
+                    (changes),
+                )
+
 
 #  CREATE TABLE IF NOT EXISTS reminders (
 #                         id INTEGER PRIMARY KEY AUTOINCREMENT,

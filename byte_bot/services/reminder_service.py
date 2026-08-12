@@ -253,7 +253,7 @@ class ReminderService:
             for row in rows
         ]
 
-    def update_reminder_text(self, event_id: int, text: str) -> list[Reminder]:
+    def update_reminder_text(self, event_id: str, text: str) -> list[Reminder]:
         """Update text for unsent reminders given an event id."""
 
         with self.db.get_connection() as connection:

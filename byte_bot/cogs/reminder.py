@@ -5,15 +5,17 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from byte_bot.byte_bot import ByteBot
-from byte_bot.services.reminder_service import ReminderService
+from byte_bot.services.reminder_service import ReminderService, Reminder
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 DEFAULT_REMINDERS = (
-        10, # ten minutes 
+        10, # 10 minutes 
         24*60 # 24 hours
     )
+
+REMINDER_THRESHOLD = 120 # seconds
 
 def format_reminder_time(minutes: int) -> str:
     """Format the time to show in discord message."""
@@ -21,7 +23,7 @@ def format_reminder_time(minutes: int) -> str:
         return f"{minutes} minute{'s' if minutes != 1 else ''}"
 
     hours = minutes // 60
-    remaining_minutes = minutes%60
+    remaining_minutes = minutes % 60
 
     if remaining_minutes == 0:
         return f"{hours} hour{'s' if hours != 1 else ''}"
@@ -50,11 +52,11 @@ class ReminderCog(commands.Cog):
         self.db_service = ReminderService(bot.database_service)
 
     async def cog_load(self):
-        self.check_reminders_db.start()
+        self.process_reminders.start()
         self.check_reminders.start()
 
     def cog_unload(self):
-        self.check_reminders_db.cancel()
+        self.process_reminders.cancel()
         self.check_reminders.cancel()
 
     @reminder.command(
@@ -170,34 +172,41 @@ class ReminderCog(commands.Cog):
 
         for reminder in reminders:
             embed.add_field(
-                    name="reminder",
+                    name=f"Reminder will be sent to channel <#{reminder.channel_id}>" 
+                        f" {reminder.reminder_minutes} minutes before the event",
                     value=(
-                    f"id: {reminder.id}\n"
-                    f"event_id: {reminder.event_id}\n"
-                    f"event_name: {reminder.event_name}\n"
-                    f"event_name: {reminder.text}\n"
+                    f"Event id: {reminder.event_id}\n"
+                    f"Event name: {reminder.event_name}\n"
+                    f"Text: {reminder.text}\n"
                     f"url: {reminder.url}\n"
-                    f"reminder_minutes: {reminder.reminder_minutes}\n"
-                    f"event_start: {reminder.event_start}\n"
+                    f"Event time: <t:{reminder.event_start}:F>\n\n"
                     ),
                     inline=False,
             )
 
         await interaction.followup.send(embed=embed)
     
-    @tasks.loop(minutes=30)
+    @tasks.loop(seconds=30)
     async def process_reminders(self):
         # get reminder channels
         channels = self.db_service.get_reminder_channels()
+
+        if not channels:
+            logger.debug("No channels are set for reminders")
+            return
+        
         channels_ids = [channel.id for channel in channels]
+
         logger.debug("Process reminders")
+
         reminders = self.db_service.get_pending_reminders()
-        events_w_reminder = {reminder.event_id: reminder.event_start for reminder in reminders}
+        reminder_event_start_dict = {reminder.event_id: reminder.event_start for reminder in reminders}
         guild = self.bot.get_channel(self.bot.feature_forum_channel_id).guild
         upcoming_events = await guild.fetch_scheduled_events(
                     with_counts=False
                 )
-        
+        now = int(time.time())
+
         events = [
             event
             for event in upcoming_events
@@ -206,59 +215,70 @@ class ReminderCog(commands.Cog):
                 discord.EventStatus.completed,
                 discord.EventStatus.cancelled,
             )
+            and event.start_time.timestamp() > now
         ]
         # check if there are reminders for the event
         for event in events:
-            if event.id in events_w_reminder:
+            start_time = int(event.start_time.timestamp())
+            if int(event.id) in reminder_event_start_dict:
                 # Check if the time_start is the same
                 # if not update the reminders
-                start_time = int(event.start_time.timestamp()) 
-                if start_time!= events_w_reminder[event.id]:
+                if start_time!= reminder_event_start_dict[event.id]:
                     self.db_service.update_reminder_start_time(event.id, start_time)
                 continue
-
-            logger.debug(f"Creating reminder for {event.id}, {event.name}")
             # create and event reminder
-            for timer_reminder in DEFAULT_REMINDERS:
+            for time_reminder in DEFAULT_REMINDERS:
+                
+                # if the envent will start in less time than the default reminder minutes
+                # just continue do not create the reminder
+                # Include the REMINDER_THRESHOLD to avoid creating new remainder 
+                # that could be already sent 
+                if time_reminder * 60 + REMINDER_THRESHOLD >= (start_time - now) :
+                    continue
+
                 for channel_id in channels_ids:
+                    logger.debug(f"Creating reminder for {event.id}, {event.name}")
                     self.db_service.create_reminder(
                         event.id,
                         event.name,
                         event.url,
                         event.description or "",
                         channel_id,
-                        timer_reminder,
-                        event.start_time
+                        time_reminder,
+                        start_time
                     )
 
     @process_reminders.before_loop
-    async def before_check_reminders(self):
+    async def before_process_reminders(self):
         await self.bot.wait_until_ready()
 
-    async def send_reminder(self, reminder):
+    async def send_reminder(self, reminder: Reminder) -> bool:
         try:
             channel = await self.bot.fetch_channel(reminder.channel_id)
         except Exception as e:
             logger.error(
-                f"Reminder channel {reminder.channel_id} was not found"
+                f"Reminder channel {reminder.channel_id} was not found: {e}"
             )
             return False
-        
-        time_text = format_reminder_time(reminder.reminder_minutes) 
+
+        # Calculate the minutes before de event
+        left_minutes = (reminder.event_start - int(time.time()))//60
+
+        time_text = format_reminder_time(left_minutes) 
 
         embed = discord.Embed(
             title="🔔 Event reminder",
             description=(
                 f"**{reminder.event_name}**\n\n"
+                f"{reminder.text}\n\n"
                 f"⏰ Starts in **{time_text}**.\n\n"
                 f"<t:{reminder.event_start}:F>\n\n"
-                f"{reminder.text}"
             ),
             color=discord.Color.blurple(),
         )
 
         embed.add_field(
-            name="Event",
+            name="🔗 Event url",
             value=reminder.url
         )
 
@@ -268,26 +288,34 @@ class ReminderCog(commands.Cog):
 
     @tasks.loop(seconds=60)
     async def check_reminders(self):
+        logger.debug("checking reminders")
         reminders = self.db_service.get_pending_reminders()
+        
         now = int(time.time()) # get the now timestamp in abs seconds
         
         for reminder in reminders:
             reminder_seconds = reminder.reminder_minutes*60
-            if 0 < reminder.event_start - now <= reminder_seconds:
+            logger.debug("pending reminder")
+            logger.debug(f"reminder id: {reminder.id} | event: {reminder.event_name} | channel {reminder.channel_id} | minutes {reminder.reminder_minutes} | sent at: {reminder.sent_at}")
+            
+            if abs(reminder.event_start - now - reminder_seconds) < REMINDER_THRESHOLD:
                 try: 
                     sent = await self.send_reminder(reminder)
+                    logger.debug("Sending reminder")
+                    logger.debug(f"reminder id: {reminder.id} | sent_at: {reminder.sent_at} | minutes before {reminder.reminder_minutes} | event name {reminder.event_name}")
                     if sent:
                         self.db_service.mark_reminder_sent(
-                        reminder.id,
-                        now,
-                    )
+                            reminder.id,
+                            now,
+                        )
+                        logger.debug(f"marked as sent: {reminder.id}")
                 except Exception as e:
                     logger.exception(
-                        f"Failed to send reminder {reminder.id}"
+                        f"Failed to send reminder {reminder.id}: {e}"
                     )
 
     @check_reminders.before_loop
-    async def before_check_reminders(self):
+    async def before_process_reminders(self):
         await self.bot.wait_until_ready()
 
     @reminder.command(

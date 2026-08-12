@@ -79,6 +79,14 @@ class ReminderService:
         """Remove a channel from the reminder channel table given the id."""
         with self.db.get_connection() as connection:
             with connection:
+                connection.execute(
+                    """
+                        DELETE FROM reminders
+                        WHERE channel_id = ?                    
+                    """,
+                    (channel_id,),
+                )
+
                 cursor = connection.execute(
                     """
                         DELETE FROM reminder_channels
@@ -115,11 +123,11 @@ class ReminderService:
                 """
             ).fetchall()
 
-            if not rows:
-                return reminders
+        if not rows:
+            return reminders
 
-            for row in rows:
-                reminders.append(row_to_reminder(row))
+        for row in rows:
+            reminders.append(row_to_reminder(row))
 
         return reminders
 
@@ -210,10 +218,10 @@ class ReminderService:
 
         return row_to_reminder(row)
 
-    def update_reminder_start_time(self, event_id, timestamp):
+    def update_reminder_start_time(self, event_id: int, timestamp: int) -> list[Reminder]:
         """Update start time for unsent reminders given an event id."""
 
-        with self.db.get_connection as connection:
+        with self.db.get_connection() as connection:
             with connection:
                 cursor = connection.execute(
                     """
@@ -245,10 +253,10 @@ class ReminderService:
             for row in rows
         ]
 
-    def update_reminder_text(self, event_id, text) -> list[Reminder]:
+    def update_reminder_text(self, event_id: int, text: str) -> list[Reminder]:
         """Update text for unsent reminders given an event id."""
 
-        with self.db.get_connection as connection:
+        with self.db.get_connection() as connection:
             with connection:
                 cursor = connection.execute(
                     """

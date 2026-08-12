@@ -30,6 +30,7 @@ def format_reminder_time(minutes: int) -> str:
         f"{hours} hour{'s' if hours != 1 else ''} "
         f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
     )
+
 class ReminderCog(commands.Cog):
 
     reminder = app_commands.Group(

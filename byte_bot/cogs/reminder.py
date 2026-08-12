@@ -186,7 +186,7 @@ class ReminderCog(commands.Cog):
 
         await interaction.followup.send(embed=embed)
     
-    @tasks.loop(seconds=30)
+    @tasks.loop(minutes=30)
     async def process_reminders(self):
         # get reminder channels
         channels = self.db_service.get_reminder_channels()

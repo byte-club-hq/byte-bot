@@ -80,10 +80,8 @@ class ReminderCog(commands.Cog):
             title="Reminders are set in the following channels",
             color=discord.Color.dark_blue(),
         )
-        logger.debug(len(channels))
 
         for channel in channels:
-            logger.debug(channel.name)
             embed.add_field(
                  name=channel.name,
                  value=(
@@ -168,7 +166,6 @@ class ReminderCog(commands.Cog):
             title="Reminders are the following",
             color=discord.Color.dark_blue(),
         )
-        logger.debug(len(reminders))
 
         for reminder in reminders:
             embed.add_field(
@@ -192,15 +189,13 @@ class ReminderCog(commands.Cog):
         # get reminder channels
         channels = self.db_service.get_reminder_channels()
         channels_ids = [channel.id for channel in channels]
-        logger.debug("process reminders")
+        logger.debug("Process reminders")
         reminders = self.db_service.get_pending_reminders()
         events_w_reminder = {reminder.event_id: reminder.event_start for reminder in reminders}
         guild = self.bot.get_channel(self.bot.feature_forum_channel_id).guild
-        logger.debug(guild)
         upcoming_events = await guild.fetch_scheduled_events(
                     with_counts=False
                 )
-        logger.debug(events_w_reminder)
         
         events = [
             event
@@ -213,7 +208,6 @@ class ReminderCog(commands.Cog):
         ]
         # check if there are reminders for the event
         for event in events:
-            logger.debug(event)
             if event.id in events_w_reminder:
                 # Check if the time_start is the same
                 # if not update the reminders
@@ -222,7 +216,7 @@ class ReminderCog(commands.Cog):
                     self.db_service.update_reminder_start_time(event.id, start_time)
                 continue
 
-            logger.debug(f"creating for {event.id}, {event.name}")
+            logger.debug(f"Creating reminder for {event.id}, {event.name}")
             # create and event reminder
             for timer_reminder in DEFAULT_REMINDERS:
                 for channel_id in channels_ids:
@@ -230,7 +224,7 @@ class ReminderCog(commands.Cog):
                         event.id,
                         event.name,
                         event.url,
-                        event.description,
+                        event.description or "",
                         channel_id,
                         timer_reminder,
                         event.start_time
@@ -250,7 +244,7 @@ class ReminderCog(commands.Cog):
             return False
         
         time_text = format_reminder_time(reminder.reminder_minutes) 
-        
+
         embed = discord.Embed(
             title="🔔 Event reminder",
             description=(
@@ -295,6 +289,53 @@ class ReminderCog(commands.Cog):
     async def before_check_reminders(self):
         await self.bot.wait_until_ready()
 
+    @reminder.command(
+                name="change_text",
+                description="Change the reminders text content given the event id."
+        )
+    @app_commands.guild_only()
+    @app_commands.default_permissions(administrator=True)
+    async def change_reminder_text(self, interaction: discord.Interaction, event_id: int, text: str):
+        await interaction.response.defer(ephemeral=True)
+
+        if not text.strip():
+            await interaction.followup.send("Reminder text cannot be empty.")
+            return
+        
+        logger.debug(f"Updating reminder text for event {event_id}")
+
+        reminders = self.db_service.update_reminder_text(event_id, text)
+        
+        if not reminders:
+            await interaction.followup.send(
+                embed=discord.Embed(
+                    title="No reminders found",
+                    description=f"No unsent reminders were found for event {event_id}."
+                ))
+            return
+
+        embed = discord.Embed(
+            title="Reminders text updated",
+            description=(
+                f"Updated {len(reminders)} reminder(s) "
+                f"for event `{event_id}`."
+            ),
+            color=discord.Color.dark_blue(),
+        )
+
+        for reminder in reminders:
+            embed.add_field(
+                name=f"Reminder #{reminder.id}",
+                value=(
+                    f"**Event:** {reminder.event_name}\n"
+                    f"**Channel ID:** {reminder.channel_id}\n"
+                    f"**Reminder:** {reminder.reminder_minutes} minutes\n"
+                    f"**Text:** {reminder.text}"
+                ),
+                inline=False,
+            )
+
+        await interaction.followup.send(embed=embed)
 
 async def setup(bot: ByteBot):
     await bot.add_cog(ReminderCog(bot))

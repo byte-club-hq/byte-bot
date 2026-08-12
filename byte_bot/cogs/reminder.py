@@ -288,27 +288,23 @@ class ReminderCog(commands.Cog):
 
     @tasks.loop(seconds=60)
     async def check_reminders(self):
-        logger.debug("checking reminders")
+        logger.debug("Checking reminders")
         reminders = self.db_service.get_pending_reminders()
         
         now = int(time.time()) # get the now timestamp in abs seconds
         
         for reminder in reminders:
             reminder_seconds = reminder.reminder_minutes*60
-            logger.debug("pending reminder")
-            logger.debug(f"reminder id: {reminder.id} | event: {reminder.event_name} | channel {reminder.channel_id} | minutes {reminder.reminder_minutes} | sent at: {reminder.sent_at}")
             
             if abs(reminder.event_start - now - reminder_seconds) < REMINDER_THRESHOLD:
                 try: 
                     sent = await self.send_reminder(reminder)
-                    logger.debug("Sending reminder")
-                    logger.debug(f"reminder id: {reminder.id} | sent_at: {reminder.sent_at} | minutes before {reminder.reminder_minutes} | event name {reminder.event_name}")
                     if sent:
                         self.db_service.mark_reminder_sent(
                             reminder.id,
                             now,
                         )
-                        logger.debug(f"marked as sent: {reminder.id}")
+                        logger.debug(f"Reminder has been sent: {reminder.id} | Event: {reminder.event_name} | Channel id {reminder.channel_id}")
                 except Exception as e:
                     logger.exception(
                         f"Failed to send reminder {reminder.id}: {e}"
@@ -324,9 +320,13 @@ class ReminderCog(commands.Cog):
         )
     @app_commands.guild_only()
     @app_commands.default_permissions(administrator=True)
-    async def change_reminder_text(self, interaction: discord.Interaction, event_id: int, text: str):
+    async def change_reminder_text(self, interaction: discord.Interaction, event_id: str, text: str):
         await interaction.response.defer(ephemeral=True)
-
+        # Using string for event_id due that event id have around 20 digits and it is too large for int type in discord ui
+        if len(event_id) > 25:
+            await interaction.followup.send("Evetn id too large.")
+            return
+    
         if not text.strip():
             await interaction.followup.send("Reminder text cannot be empty.")
             return
@@ -354,11 +354,11 @@ class ReminderCog(commands.Cog):
 
         for reminder in reminders:
             embed.add_field(
-                name=f"Reminder #{reminder.id}",
+                name=f"Reminder id {reminder.id}",
                 value=(
                     f"**Event:** {reminder.event_name}\n"
                     f"**Channel ID:** {reminder.channel_id}\n"
-                    f"**Reminder:** {reminder.reminder_minutes} minutes\n"
+                    f"**Reminder:** {reminder.reminder_minutes} minutes before the event\n"
                     f"**Text:** {reminder.text}"
                 ),
                 inline=False,

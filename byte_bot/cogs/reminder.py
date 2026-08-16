@@ -208,7 +208,7 @@ class ReminderCog(commands.Cog):
                 continue
 
             for channel_id in channels_ids:
-                logger.debug(f"Creating reminders for {event.id}, {event.name}")
+                logger.debug(f"Creating reminders for {event.id}, {event.name} in channel: {channel_id}")
                 reminder = self.db_service.create_reminder(
                     event_id=event.id,
                     event_name=event.name,
@@ -316,7 +316,7 @@ class ReminderCog(commands.Cog):
             title="🔔 Event reminder",
             description=(
                 f"**{reminder.event_name}**\n\n"
-                f"{reminder.text}\n\n"
+                f"{(reminder.text + '\n\n') if reminder.text else ''}"
                 f"⏰ Starts in **{time_text}**.\n\n"
                 f"<t:{reminder.event_start}:F>\n\n"
             ),
@@ -454,7 +454,7 @@ class ReminderCog(commands.Cog):
     ):
         try:
             self.create_default_reminders(event)
-            logger.debug(f"Scheduled event created: {event.id}")
+            logger.debug(f"Scheduled event '{event.name}' created, event id: {event.id}")
         except Exception as e:
             logger.error(f"An error ocurred during reminder creation for event {event.id}: {event.name} | {e}")
 

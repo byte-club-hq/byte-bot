@@ -259,7 +259,7 @@ class ReminderCog(commands.Cog):
                 self.db_service.delete_reminders_for_event(event_id)
 
         # Check if the event has been not changed
-        for event_id in reminders_by_event.items():
+        for event_id, reminders in reminders_by_event.items():
             # Check if the event_id in in the discord events
             # If not this event was removed in the lines above
             event = events_by_id.get(event_id)

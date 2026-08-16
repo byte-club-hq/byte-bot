@@ -97,14 +97,10 @@ class ReminderService:
         
         return cursor.rowcount > 0
 
+    # Check if I need to change this
     def get_pending_reminders(self) -> list[Reminder]:
         """Return a list of reminders scheduled to be sent."""
         reminders = []
-        # Notes it coulp happen that an reminder has not been sent because
-        # an error it could be good to add a filter event_start > now
-        # in the sql query, but for now I guess this part is solved with the condition 
-        # 0 < reminder.event_start - now <= reminder_seconds
-        # in the calling function process_reminder, but I'm not sure
         with self.db.get_connection() as connection:
             rows = connection.execute(
                 """
@@ -130,6 +126,35 @@ class ReminderService:
             reminders.append(row_to_reminder(row))
 
         return reminders
+
+    def get_unsent_reminders(self) -> list[Reminder]:
+            """Return a list of unsent reminders scheduled to be sent."""
+            reminders = []
+            with self.db.get_connection() as connection:
+                rows = connection.execute(
+                    """
+                    SELECT 
+                        id, 
+                        event_id, 
+                        event_name, 
+                        url, 
+                        text, 
+                        channel_id, 
+                        reminder_minutes, 
+                        event_start,
+                        sent_at
+                    FROM reminders
+                    WHERE sent_at IS NULL
+                    """
+                ).fetchall()
+    
+            if not rows:
+                return reminders
+    
+            for row in rows:
+                reminders.append(row_to_reminder(row))
+    
+            return reminders
 
     def create_reminder(
         self,
@@ -278,6 +303,58 @@ class ReminderService:
                     (
                         text,
                         event_id,
+                    ),
+                )
+
+                rows = cursor.fetchall()
+
+        return [
+            row_to_reminder(row)
+            for row in rows
+        ]
+
+    def delete_reminders_for_event(self, event_id) -> bool:
+            """Remove a event from the reminders table given the id."""
+            with self.db.get_connection() as connection:
+                with connection:
+                    cursor = connection.execute(
+                        """
+                            DELETE FROM reminders
+                            WHERE event_id = ?
+                            """,
+                        (event_id,),
+                    )
+            
+            return cursor.rowcount > 0
+
+
+    def update_reminder_for_event(self, event_id, name, url, start_time):
+        with self.db.get_connection() as connection:
+            with connection:
+                cursor = connection.execute(
+                    """
+                    UPDATE reminders
+                    SET 
+                        event_name = ?,
+                        url = ?,
+                        event_start = ?
+                    WHERE event_id = ?
+                    RETURNING
+                        id,
+                        event_id,
+                        event_name,
+                        url,
+                        text,
+                        channel_id,
+                        reminder_minutes,
+                        event_start,
+                        sent_at
+                    """,
+                    (
+                        name,
+                        url,
+                        start_time,
+                        event_id
                     ),
                 )
 

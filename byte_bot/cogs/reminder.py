@@ -250,8 +250,8 @@ class ReminderCog(commands.Cog):
         reminders_by_event = {}
         for reminder in reminders:
             if reminder.id not in reminders_by_event:
-                reminders_by_event[reminder.id]  = []
-            reminders_by_event[reminder.id].append(reminder)
+                reminders_by_event[int(reminder.event_id)]  = []
+            reminders_by_event[int(reminder.event_id)].append(reminder)
 
         # Remove reminders with deleted events
         for event_id in reminders_by_event.keys():

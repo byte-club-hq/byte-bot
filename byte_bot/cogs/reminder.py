@@ -21,8 +21,6 @@ REMINDER_TIMES_BEFORE_EVENT = [
 use_default_rules_env = os.getenv("USE_DEFAULT_REMINDER_RULES", "true").lower()
 USE_DEFAULT_REMINDER_RULES = use_default_rules_env in ("true", "1")
 
-logger.debug(f"use default rules {USE_DEFAULT_REMINDER_RULES} {type(USE_DEFAULT_REMINDER_RULES)}")
-
 default_channel = os.getenv("DEFAULT_REMINDER_CHANNEL")
 DEFAULT_REMINDER_CHANNEL = int(default_channel) if default_channel else None
 
@@ -418,8 +416,7 @@ class ReminderCog(commands.Cog):
         # Create new rules ?
         if USE_DEFAULT_REMINDER_RULES:
             for event_id, event in events_by_id.items():
-                # check if there no rule for event_id
-                logger.debug(f"{event_id}, {event.name}, {event.start_time}")
+                # check if there are rules for event_id
                 if event_id not in rules_by_event:
                     self.create_default_rules_reminders(event)
 

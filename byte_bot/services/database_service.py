@@ -2,8 +2,22 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 import sqlite3
+import logging
+import os
 
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
+USE_DEFAULT_REMINDER_RULES = bool(os.getenv("USE_DEFAULT_REMINDER_RULES", False))
+DEFAULT_REMINDER_CHANNEL = os.getenv("DEFAULT_REMINDER_CHANNEL")
+
+if not DEFAULT_REMINDER_CHANNEL:
+    try:
+        DEFAULT_REMINDER_CHANNEL = os.getenv("FEATURE_FORUM_CHANNEL_ID")
+    except Exception as e:
+        logger.error(f"FEATURE_FORUM_CHANNEL_ID is not set: {e}")
+        raise
+        
 @dataclass(frozen=True)
 class UserRecord:
     user_id: int
@@ -68,6 +82,38 @@ class DatabaseService:
                     """
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_role_toggle_panels_message
                     ON role_toggle_panels (guild_id, message_id, emoji)
+                    """
+                )
+
+                # create reminder_rules table if not exists
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS reminders_rules (
+                        id INTEGER PRIMARY KEY,
+                        event_id INTEGER NOT NULL,
+                        channel_id INTEGER NOT NULL,
+                        minutes_before INTEGER NOT NULL,
+                        text TEXT
+                    )
+                    """
+                )
+
+                # Create reminders if not exists
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS reminders (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        event_id INTEGER NOT NULL,
+                        rule_id INTEGER NOT NULL,
+                        channel_id INTEGER NOT NULL,
+                        event_name TEXT NOT NULL,
+                        url TEXT,
+                        description TEXT,
+                        event_start INTEGER NOT NULL,
+                        scheduled_at INTEGER,
+                        sent_at INTEGER,
+                        canceled_at INTEGER
+                    )
                     """
                 )
 

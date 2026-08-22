@@ -110,7 +110,7 @@ class DatabaseService:
                         url TEXT,
                         description TEXT,
                         event_start INTEGER NOT NULL,
-                        scheduled_at: INTEGER,
+                        scheduled_at INTEGER,
                         sent_at INTEGER,
                         canceled_at INTEGER
                     )

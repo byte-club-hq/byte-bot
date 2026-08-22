@@ -21,6 +21,8 @@ REMINDER_TIMES_BEFORE_EVENT = [
 use_default_rules_env = os.getenv("USE_DEFAULT_REMINDER_RULES", "true").lower()
 USE_DEFAULT_REMINDER_RULES = use_default_rules_env in ("true", "1")
 
+logger.debug(f"use default rules {USE_DEFAULT_REMINDER_RULES} {type(USE_DEFAULT_REMINDER_RULES)}")
+
 default_channel = os.getenv("DEFAULT_REMINDER_CHANNEL")
 DEFAULT_REMINDER_CHANNEL = int(default_channel) if default_channel else None
 
@@ -153,7 +155,7 @@ class ReminderCog(commands.Cog):
             embed.add_field(
                 name=f"Rule reminder id: {rule.id}",
                 value=(
-                f"# channel: <#{rule.channel_id}>"
+                f"# channel: <#{rule.channel_id}>\n"
                 f"⏱️ minutes before: {rule.minutes_before}\n"
                 f"📄 text: {rule.text}\n\n"
                 ),
@@ -180,14 +182,14 @@ class ReminderCog(commands.Cog):
         try: 
             event = await guild.fetch_scheduled_event(int(event_id))
         except Exception as e:
-            logger.warning(f"Failed to fetch event : {event_id}")
+            logger.warning(f"Failed to fetch event : {event_id}: {e}")
             event = None
 
         if not event:
             await interaction.followup.send(f"Failed to get event with id: {event_id} does not exists.")
             return
         
-        new_rule = self.db_service.create_reminder_rule(event_id, channel.id, minutes_before, text)
+        new_rule = self.db_service.create_reminder_rule(int(event_id), int(channel.id), minutes_before, text)
 
         if not new_rule:
             await interaction.followup.send(f"Failed to create a rule for event id: {event_id}.")
@@ -197,12 +199,12 @@ class ReminderCog(commands.Cog):
         self.create_reminder(new_rule, event)
 
         embed = discord.Embed(
-            title="📏 A new rule reminder was created ...",
+            title="📏 A new rule reminder was created",
             color=discord.Color.dark_blue(),
         )
         
         embed.add_field(
-            name=f"Rule reminder id: {new_rule.id}>",
+            name=f"Rule reminder id: {new_rule.id}",
             value=(
                 f"Event id: {new_rule.event_id}\n"
                 f"# channel: <#{new_rule.channel_id}>\n"
@@ -219,8 +221,9 @@ class ReminderCog(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     async def remove_rule(self, interaction: discord.Interaction, rule_id: int):
         logger.debug(f"Removing rule: {rule_id}")
+        await interaction.response.defer()
         now = int(time.time())
-        removed_rule = self.db_service.remove_rule(rule_id, now)
+        removed_rule = self.db_service.remove_rule(int(rule_id), now)
         
         if not removed_rule:
             await interaction.followup.send(f"Failed to rule: {rule_id}. Check the rule_id")
@@ -275,7 +278,7 @@ class ReminderCog(commands.Cog):
 
         # Do not create reminder if event will start in less time than minutes before
         if rule.minutes_before * 60 + REMINDER_TIME_THRESHOLD >= (event_start - now):
-            logger.debug()
+            logger.debug(f"Reminder was not created for rule: {rule.id}, because the event starts in less minutes than the minutes_before rule")
             return
         
         new_reminder = self.db_service.create_reminder(
@@ -298,10 +301,10 @@ class ReminderCog(commands.Cog):
 
 
     def create_default_rules_reminders(self, event):
-        new_rules = []
         if not DEFAULT_REMINDER_CHANNEL:
-            return
+            return []
         rules_to_create = []
+
         for time_before in REMINDER_TIMES_BEFORE_EVENT:
             rules_to_create.append((
                 int(event.id),
@@ -311,8 +314,10 @@ class ReminderCog(commands.Cog):
             ))
         new_rules = self.db_service.create_reminders_rules(rules_to_create)
 
-        logger.debug(f"{len(new_rules)} have been created")
+        logger.debug(f"{len(new_rules)} rules have been created")
 
+        return new_rules
+    
     def sync_events_w_reminders(self, reminders_by_event, events_by_id):
         for event_id, reminders in reminders_by_event.items():
             # Check if the event_id in in the discord events
@@ -414,6 +419,7 @@ class ReminderCog(commands.Cog):
         if USE_DEFAULT_REMINDER_RULES:
             for event_id, event in events_by_id.items():
                 # check if there no rule for event_id
+                logger.debug(f"{event_id}, {event.name}, {event.start_time}")
                 if event_id not in rules_by_event:
                     self.create_default_rules_reminders(event)
 
@@ -525,10 +531,10 @@ class ReminderCog(commands.Cog):
         removed_event = self.db_service.remove_rules_for_event(event.id, now)
 
         if removed_event:
-            logger.debug(f"Scheduled event deleted from remiders: {event.id}")
+            logger.debug(f"Scheduled reminders deleted for event: {event.id}")
             return
 
-        logger.debug(f"Failed to remove scheduled event from remiders: {event.id}")
+        logger.debug(f"Failed to remove scheduled reminder for event: {event.id}")
 
     @commands.Cog.listener()
     async def on_scheduled_event_create(

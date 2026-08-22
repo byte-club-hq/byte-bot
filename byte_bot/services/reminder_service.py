@@ -123,7 +123,7 @@ class ReminderService:
         """Create multiple reminders given a list of new data"""
         with self.db.get_connection() as connection:
             with connection:
-                cursor = connection.executemany(
+                cursor = connection.execute(
                     """
                     INSERT INTO reminders_rules (
                         event_id,
@@ -152,29 +152,28 @@ class ReminderService:
     def create_reminders_rules(self, rules: list[tuple]) -> list[ReminderRule]:
         """Create multiple reminders given a list of new data"""
         new_rules = []
+
         with self.db.get_connection() as connection:
             with connection:
-                cursor = connection.executemany(
-                    """
-                    INSERT INTO reminders_rules (
-                        event_id,
-                        channel_id,
-                        minutes_before,
-                        text
+                for rule in rules:
+                    cursor = connection.execute(
+                        """
+                        INSERT INTO reminders_rules (
+                            event_id,
+                            channel_id,
+                            minutes_before,
+                            text
+                        )
+                        VALUES (?, ?, ?, ?)
+                        RETURNING id, event_id, channel_id, minutes_before, text
+                        """,
+                        rule
                     )
-                    VALUES (?, ?, ?, ?)
-                    RETURNING id, event_id, channel_id, minutes_before, text
-                    """,
-                    rules
-                )
 
-                rows = cursor.fetchall()
+                    row = cursor.fetchone()
 
-        if rows is None:
-            return new_rules
-
-        for row in rows:
-            new_rules.append(row_to_rule(row))
+                    if row:
+                        new_rules.append(row_to_rule(row))
 
         return new_rules
     
@@ -350,13 +349,12 @@ class ReminderService:
 
         with self.db.get_connection() as connection:
             with connection:
-                connection.execute()
                 cursor = connection.execute(
                     """
                     DELETE FROM reminders_rules
                     WHERE id = ?
                     """,
-                    (rule_id),
+                    (rule_id,),
                 )
 
         return cursor.rowcount > 0
@@ -366,13 +364,12 @@ class ReminderService:
 
         with self.db.get_connection() as connection:
             with connection:
-                connection.execute()
                 cursor = connection.execute(
                     """
                     DELETE FROM reminders_rules
                     WHERE event_id = ?
                     """,
-                    (event_id),
+                    (event_id,),
                 )
 
         return cursor.rowcount > 0
@@ -391,7 +388,7 @@ class ReminderService:
                 FROM reminders_rules
                 WHERE event_id = ?
                 """, 
-                (event_id,)
+                (event_id,),
             ).fetchall()
 
         if not rows:

@@ -93,7 +93,8 @@ class DatabaseService:
                         event_id INTEGER NOT NULL,
                         channel_id INTEGER NOT NULL,
                         minutes_before INTEGER NOT NULL,
-                        text TEXT
+                        text TEXT,
+                        UNIQUE (event_id, channel_id, minutes_before)
                     )
                     """
                 )

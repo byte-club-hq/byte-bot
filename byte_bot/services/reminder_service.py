@@ -98,6 +98,8 @@ class ReminderService:
                         scheduled_at
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (event_id, channel_id, minutes_before)
+                    DO NOTHING
                     RETURNING {REMINDER_COLUMNS}
                     """,
                     (
@@ -235,7 +237,7 @@ class ReminderService:
                     SET 
                         sent_at = ?,
                         canceled_at = ?
-                    WHERE reminder_id = ? 
+                    WHERE id = ? 
                         AND sent_at IS NULL
                         AND canceled_at IS NULL
                     """,

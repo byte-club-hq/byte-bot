@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 REMINDER_CHECK_LOOP_TIME = int(os.getenv("REMINDER_CHECK_LOOP_TIME", 60))  # in seconds
 SYNC_REMINDER_LOOP_TIME = int(os.getenv("SYNC_REMINDER_LOOP_TIME", 30))  # in minutes
-REMINDER_TIME_THRESHOLD = int(os.getenv("REMINDER_TIME_THRESHOLD", 120))  # in seconds
 REMINDER_TIMES_BEFORE_EVENT = [
     int(minutes) for minutes in os.getenv("REMINDER_TIMES_BEFORE_EVENT", "10,1440").split(",")
 ]
@@ -127,7 +126,7 @@ class ReminderCog(commands.Cog):
         try: 
             event = await guild.fetch_scheduled_event(int(event_id))
         except Exception as e:
-            logger.warning(f"Failed to fetch event : {event_id}")
+            logger.warning(f"Failed to fetch event : {event_id}: {e}")
             event = None
 
         if not event:
@@ -275,7 +274,7 @@ class ReminderCog(commands.Cog):
         now = int(time.time())
 
         # Do not create reminder if event will start in less time than minutes before
-        if rule.minutes_before * 60 + REMINDER_TIME_THRESHOLD >= (event_start - now):
+        if rule.minutes_before * 60 > (event_start - now):
             logger.debug(f"Reminder was not created for rule: {rule.id}, because the event starts in less minutes than the minutes_before rule")
             return
         
@@ -481,7 +480,7 @@ class ReminderCog(commands.Cog):
         now = int(time.time())  # get the now timestamp in abs seconds
 
         for reminder in reminders:
-            if abs(reminder.scheduled_at - now) < REMINDER_TIME_THRESHOLD:
+            if reminder.scheduled_at  < now:
                 try:
                     sent = await self.send_reminder(reminder)
                     if sent:
@@ -512,6 +511,7 @@ class ReminderCog(commands.Cog):
             url=after.url,
             start_time=int(after.start_time.timestamp()),
         )
+        #TODO: remove pending reminders and create a new ones
 
         if updated_reminders:
             logger.debug(f"Updated reminders : {len(updated_reminders)} for {after.name}")

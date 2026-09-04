@@ -505,19 +505,61 @@ class ReminderCog(commands.Cog):
         after: discord.ScheduledEvent,
     ):
         logger.debug(f"Scheduled event updated: {after.id} | {after.name}")
+
+        now = int(time.time())
+
+        if (before.status != discord.EventStatus.cancelled
+            and after.status == discord.EventStatus.cancelled):
+            # The whole event/series was cancelled.
+            # Remove its reminder rules; this also cancels the associated reminders.
+            self.db_service.remove_rules_for_event(before.id, now)
+            return
+
+        if before.recurrence_rule is not None:
+            new_exceptions = [
+                exception
+                for exception in after.exceptions
+                if exception not in before.exceptions
+            ]
+
+            for exception in new_exceptions:
+                logger.debug(
+                    f"New exception for event {after.id}: {exception}"
+                )
+
+                if exception.is_canceled:
+                    # The condition above ensure that just a next event of a weekly series
+                    # was canceled so it will cancel reminders and not remove rules
+                    self.db_service.cancel_reminders_for_event(
+                        after.id,
+                        now,
+                    )
+                    return
+
+        if (before.status != discord.EventStatus.completed
+            and after.status == discord.EventStatus.completed):
+            self.db_service.cancel_reminders_for_event(before.id, now)
+            return
+
+        name_changed = before.name != after.name
+        url_changed = before.url != after.url
+        start_time_changed = before.start_time != after.start_time
+        
+        if not(name_changed or url_changed or start_time_changed):
+            logger.debug(f"No relevant changes for event {after.id}")
+
         updated_reminders = self.db_service.update_reminders_for_event(
-            event_id=before.id,
+            event_id=after.id,
             name=after.name,
             url=after.url,
             start_time=int(after.start_time.timestamp()),
         )
-        #TODO: remove pending reminders and create a new ones
 
         if updated_reminders:
             logger.debug(f"Updated reminders : {len(updated_reminders)} for {after.name}")
             return
-
-        logger.debug("No reminders were updated")
+        else:
+            logger.debug( f"No pending reminders found for event {after.id}")
 
     @commands.Cog.listener()
     async def on_scheduled_event_delete(

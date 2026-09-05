@@ -98,8 +98,6 @@ class ReminderService:
                         scheduled_at
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT (event_id, channel_id, minutes_before)
-                    DO NOTHING
                     RETURNING {REMINDER_COLUMNS}
                     """,
                     (
@@ -134,6 +132,8 @@ class ReminderService:
                         text
                     )
                     VALUES (?, ?, ?, ?)
+                    ON CONFLICT (event_id, channel_id, minutes_before)
+                    DO NOTHING
                     RETURNING id, event_id, channel_id, minutes_before, text
                     """,
                     (

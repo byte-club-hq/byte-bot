@@ -62,21 +62,16 @@ class ReminderCog(commands.Cog):
         self.sync_reminders.cancel()
         self.check_reminders.cancel()
 
-    @reminder.command(
-            name="list_events",
-            description="List upcoming events"
-    )
+    @reminder.command(name="list_events", description="List upcoming events")
     @app_commands.guild_only()
     async def list_events(self, interaction: discord.Interaction):
         await interaction.response.defer()
         guild = interaction.guild
 
         logger.debug("Fetching scheduled events ...")
-        upcoming_events = await guild.fetch_scheduled_events(
-            with_counts=False
-        )
+        upcoming_events = await guild.fetch_scheduled_events(with_counts=False)
         valid_events = [
-            event 
+            event
             for event in upcoming_events
             if event.status
             not in (
@@ -92,7 +87,7 @@ class ReminderCog(commands.Cog):
             return
 
         valid_events.sort(key=lambda x: x.start_time)
-        
+
         embed = discord.Embed(
             title="📅 Upcoming Events",
             color=discord.Color.dark_blue(),
@@ -101,13 +96,9 @@ class ReminderCog(commands.Cog):
         for event in valid_events:
             timestamp = int(event.start_time.timestamp())
             embed.add_field(
-                 name=event.name,
-                 value=(
-                    f"Event id: {event.id}\n"
-                    f"⏱️ <t:{timestamp}:F>\n"
-                    f"🔗 {event.url}\n\n"
-                 ),
-                 inline=False,
+                name=event.name,
+                value=(f"Event id: {event.id}\n⏱️ <t:{timestamp}:F>\n🔗 {event.url}\n\n"),
+                inline=False,
             )
 
         await interaction.followup.send(embed=embed)
@@ -119,7 +110,7 @@ class ReminderCog(commands.Cog):
         guild = interaction.guild
 
         # Check if the event exists
-        try: 
+        try:
             event = await guild.fetch_scheduled_event(int(event_id))
         except Exception as e:
             logger.warning(f"Failed to fetch event : {event_id}: {e}")
@@ -128,7 +119,7 @@ class ReminderCog(commands.Cog):
         if not event:
             await interaction.followup.send(f"Failed to get event with id: {event_id} does not exists.")
             return
-        
+
         logger.debug("Fetching rules reminder ...")
         rules = self.db_service.get_reminders_rules_by_event(int(event_id))
 
@@ -138,7 +129,7 @@ class ReminderCog(commands.Cog):
                 ephemeral=True,
             )
             return
-        
+
         embed = discord.Embed(
             title=f"📏 Rules for the event: {event_id}",
             color=discord.Color.dark_blue(),
@@ -148,9 +139,9 @@ class ReminderCog(commands.Cog):
             embed.add_field(
                 name=f"Rule reminder id: {rule.id}",
                 value=(
-                f"# channel: <#{rule.channel_id}>\n"
-                f"⏱️ minutes before: {rule.minutes_before}\n"
-                f"📄 text: {rule.text}\n\n"
+                    f"# channel: <#{rule.channel_id}>\n"
+                    f"⏱️ minutes before: {rule.minutes_before}\n"
+                    f"📄 text: {rule.text}\n\n"
                 ),
                 inline=False,
             )
@@ -161,18 +152,19 @@ class ReminderCog(commands.Cog):
     @app_commands.guild_only()
     @app_commands.default_permissions(administrator=True)
     async def create_rule(
-        self, 
+        self,
         interaction: discord.Interaction,
         event_id: str,
         channel: discord.TextChannel,
         minutes_before: int,
-        text: str):
+        text: str,
+    ):
 
         await interaction.response.defer()
         guild = interaction.guild
 
         # Check if the event exists
-        try: 
+        try:
             event = await guild.fetch_scheduled_event(int(event_id))
         except Exception as e:
             logger.warning(f"Failed to fetch event : {event_id}: {e}")
@@ -181,13 +173,13 @@ class ReminderCog(commands.Cog):
         if not event:
             await interaction.followup.send(f"Failed to get event with id: {event_id} does not exists.")
             return
-        
+
         new_rule = self.db_service.create_reminder_rule(int(event_id), int(channel.id), minutes_before, text)
 
         if not new_rule:
             await interaction.followup.send(f"Failed to create a rule for event id: {event_id}.")
             return
-        
+
         # Create a reminder given the rule
         self.create_reminder(new_rule, event)
 
@@ -195,7 +187,7 @@ class ReminderCog(commands.Cog):
             title="📏 A new rule reminder was created",
             color=discord.Color.dark_blue(),
         )
-        
+
         embed.add_field(
             name=f"Rule reminder id: {new_rule.id}",
             value=(
@@ -217,11 +209,11 @@ class ReminderCog(commands.Cog):
         await interaction.response.defer()
         now = int(time.time())
         removed_rule = self.db_service.remove_rule(int(rule_id), now)
-        
+
         if not removed_rule:
             await interaction.followup.send(f"Failed to rule: {rule_id}. Check the rule_id")
             return
-        
+
         await interaction.followup.send(f"Success removing rule: {rule_id}.")
 
     @reminder.command(name="list_reminders", description="List event reminders")
@@ -244,8 +236,7 @@ class ReminderCog(commands.Cog):
 
         for reminder in reminders:
             embed.add_field(
-                name=f"Reminder will be sent to channel <#{reminder.channel_id}>"
-                f" at <t:{reminder.scheduled_at}:F>",
+                name=f"Reminder will be sent to channel <#{reminder.channel_id}> at <t:{reminder.scheduled_at}:F>",
                 value=(
                     f"Event id: {reminder.event_id}\n"
                     f"rule id: {reminder.rule_id}\n"
@@ -267,9 +258,11 @@ class ReminderCog(commands.Cog):
 
         # Do not create reminder if event will start in less time than minutes before
         if rule.minutes_before * 60 > (event_start - now):
-            logger.debug(f"Reminder was not created for rule: {rule.id}, because the event starts in less minutes than the minutes_before rule")
+            logger.debug(
+                f"Reminder was not created for rule: {rule.id}, because the event starts in less minutes than the minutes_before rule"
+            )
             return
-        
+
         new_reminder = self.db_service.create_reminder(
             event_id=event.id,
             rule_id=rule.id,
@@ -289,7 +282,6 @@ class ReminderCog(commands.Cog):
             f"New reminder (id: {new_reminder.id}) created for the event: {event.name} with the rule {rule.id}"
         )
 
-
     def create_default_rules_reminders(self, event):
         if not DEFAULT_REMINDER_CHANNEL:
             return []
@@ -307,7 +299,7 @@ class ReminderCog(commands.Cog):
         logger.debug(f"{len(new_rules)} rules have been created")
 
         return new_rules
-    
+
     def sync_events_w_reminders(self, reminders_by_event, events_by_id):
         for event_id, reminders in reminders_by_event.items():
             # Check if the event_id in in the discord events
@@ -333,9 +325,9 @@ class ReminderCog(commands.Cog):
 
             # Update reminders because changed event
             updated_reminders = self.db_service.update_reminders_for_event(
-                event_id=event_id, 
-                name=name, 
-                url=url, 
+                event_id=event_id,
+                name=name,
+                url=url,
                 start_time=actual_start_time,
             )
 
@@ -360,7 +352,7 @@ class ReminderCog(commands.Cog):
                 not in (
                     discord.EventStatus.completed,
                     discord.EventStatus.cancelled,
-                    )
+                )
                 and event.start_time.timestamp() > now
             )
         }
@@ -428,7 +420,6 @@ class ReminderCog(commands.Cog):
 
             self.create_reminder(rule, event)
 
-
     @sync_reminders.before_loop
     async def before_sync_reminders(self):
         await self.bot.wait_until_ready()
@@ -437,30 +428,20 @@ class ReminderCog(commands.Cog):
         try:
             channel = await self.bot.fetch_channel(reminder.channel_id)
         except discord.NotFound:
-            logger.error(
-                f"Reminder channel {reminder.channel_id} was not found"
-            )
+            logger.error(f"Reminder channel {reminder.channel_id} was not found")
             self.db_service.cancel_reminder(reminder.id, int(time.time()))
             return False
         except discord.HTTPException as e:
-            logger.error(
-                f"Failed to fetch reminder channel "
-                f"{reminder.channel_id}: {e}"
-            )
+            logger.error(f"Failed to fetch reminder channel {reminder.channel_id}: {e}")
             return False
 
         if not isinstance(channel, discord.TextChannel):
-            logger.error(
-                f"Reminder channel {reminder.channel_id} is not a TextChannel"
-            )
+            logger.error(f"Reminder channel {reminder.channel_id} is not a TextChannel")
             self.db_service.cancel_reminder(reminder.id, int(time.time()))
             return False
-        
+
         # Calculate the minutes before de event
-        seconds_remaining = max(
-            0,
-            reminder.event_start - int(time.time())
-        )
+        seconds_remaining = max(0, reminder.event_start - int(time.time()))
 
         left_minutes = seconds_remaining // 60
         time_text = format_reminder_time(left_minutes)
@@ -521,24 +502,17 @@ class ReminderCog(commands.Cog):
 
         now = int(time.time())
 
-        if (before.status != discord.EventStatus.cancelled
-            and after.status == discord.EventStatus.cancelled):
+        if before.status != discord.EventStatus.cancelled and after.status == discord.EventStatus.cancelled:
             # The whole event/series was cancelled.
             # Remove its reminder rules; this also cancels the associated reminders.
             self.db_service.remove_rules_for_event(before.id, now)
             return
 
         if before.recurrence_rule is not None:
-            new_exceptions = [
-                exception
-                for exception in after.exceptions
-                if exception not in before.exceptions
-            ]
+            new_exceptions = [exception for exception in after.exceptions if exception not in before.exceptions]
 
             for exception in new_exceptions:
-                logger.debug(
-                    f"New exception for event {after.id}: {exception}"
-                )
+                logger.debug(f"New exception for event {after.id}: {exception}")
 
                 if exception.is_canceled:
                     # The condition above ensure that just a next event of a weekly series
@@ -549,16 +523,15 @@ class ReminderCog(commands.Cog):
                     )
                     return
 
-        if (before.status != discord.EventStatus.completed
-            and after.status == discord.EventStatus.completed):
+        if before.status != discord.EventStatus.completed and after.status == discord.EventStatus.completed:
             self.db_service.cancel_reminders_for_event(before.id, now)
             return
 
         name_changed = before.name != after.name
         url_changed = before.url != after.url
         start_time_changed = before.start_time != after.start_time
-        
-        if not(name_changed or url_changed or start_time_changed):
+
+        if not (name_changed or url_changed or start_time_changed):
             logger.debug(f"No relevant changes for event {after.id}")
             return
 
@@ -573,7 +546,7 @@ class ReminderCog(commands.Cog):
             logger.debug(f"Updated reminders : {len(updated_reminders)} for {after.name}")
             return
         else:
-            logger.debug( f"No pending reminders found for event {after.id}")
+            logger.debug(f"No pending reminders found for event {after.id}")
 
     @commands.Cog.listener()
     async def on_scheduled_event_delete(

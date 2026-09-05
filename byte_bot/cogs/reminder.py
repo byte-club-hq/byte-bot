@@ -8,7 +8,6 @@ import os
 from byte_bot.byte_bot import ByteBot
 from byte_bot.services.reminder_service import ReminderService, Reminder
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 REMINDER_CHECK_LOOP_TIME = int(os.getenv("REMINDER_CHECK_LOOP_TIME", 60))  # in seconds
@@ -72,9 +71,6 @@ class ReminderCog(commands.Cog):
         await interaction.response.defer()
         guild = interaction.guild
 
-        if guild is None:
-            return
-
         logger.debug("Fetching scheduled events ...")
         upcoming_events = await guild.fetch_scheduled_events(
             with_counts=False
@@ -107,7 +103,7 @@ class ReminderCog(commands.Cog):
             embed.add_field(
                  name=event.name,
                  value=(
-                    f"Event id: {event.id}"
+                    f"Event id: {event.id}\n"
                     f"⏱️ <t:{timestamp}:F>\n"
                     f"🔗 {event.url}\n\n"
                  ),
@@ -232,10 +228,6 @@ class ReminderCog(commands.Cog):
     @app_commands.guild_only()
     async def list_reminders(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        guild = interaction.guild
-
-        if guild is None:
-            return
 
         reminders = self.db_service.get_unsent_reminders()
 
@@ -258,7 +250,7 @@ class ReminderCog(commands.Cog):
                     f"Event id: {reminder.event_id}\n"
                     f"rule id: {reminder.rule_id}\n"
                     f"Event name: {reminder.event_name}\n"
-                    f"Text: {reminder.description}"
+                    f"Text: {reminder.description}\n"
                     f"url: {reminder.url}\n"
                     f"Event time: <t:{reminder.event_start}:F>\n\n"
                 ),
@@ -291,6 +283,7 @@ class ReminderCog(commands.Cog):
 
         if new_reminder is None:
             logger.error(f"Reminder for the rule {rule.id} was not created.")
+            return
 
         logger.debug(
             f"New reminder (id: {new_reminder.id}) created for the event: {event.name} with the rule {rule.id}"
@@ -367,7 +360,6 @@ class ReminderCog(commands.Cog):
                 not in (
                     discord.EventStatus.completed,
                     discord.EventStatus.cancelled,
-                    discord.EventStatus.active,
                     )
                 and event.start_time.timestamp() > now
             )
@@ -395,11 +387,11 @@ class ReminderCog(commands.Cog):
         # and mark that reminder as canceled
         # TODO: Remove all rules and reminder related with deleted channels
 
-        # get reminders
-        reminders = self.db_service.get_unsent_reminders()
-
         # Cancel past reminders
         self.db_service.cancel_expired_reminders(now)
+
+        # get reminders
+        reminders = self.db_service.get_unsent_reminders()
 
         # reminders_by_event stores {event_id: [reminder1, reminder2 ...]}
         reminders_by_event = {}
@@ -443,17 +435,34 @@ class ReminderCog(commands.Cog):
 
     async def send_reminder(self, reminder: Reminder) -> bool:
         try:
-            # If the channel is not found the line above will raise an error
             channel = await self.bot.fetch_channel(reminder.channel_id)
-            
-        except Exception as e:
-            logger.error(f"Reminder channel {reminder.channel_id} was not found: {e}")
-            now = int(time.time())
-            self.db_service.cancel_reminder(reminder.id, now)
+        except discord.NotFound:
+            logger.error(
+                f"Reminder channel {reminder.channel_id} was not found"
+            )
+            self.db_service.cancel_reminder(reminder.id, int(time.time()))
+            return False
+        except discord.HTTPException as e:
+            logger.error(
+                f"Failed to fetch reminder channel "
+                f"{reminder.channel_id}: {e}"
+            )
             return False
 
+        if not isinstance(channel, discord.TextChannel):
+            logger.error(
+                f"Reminder channel {reminder.channel_id} is not a TextChannel"
+            )
+            self.db_service.cancel_reminder(reminder.id, int(time.time()))
+            return False
+        
         # Calculate the minutes before de event
-        left_minutes = (reminder.event_start - int(time.time())) // 60
+        seconds_remaining = max(
+            0,
+            reminder.event_start - int(time.time())
+        )
+
+        left_minutes = seconds_remaining // 60
         time_text = format_reminder_time(left_minutes)
 
         embed = discord.Embed(
@@ -480,7 +489,11 @@ class ReminderCog(commands.Cog):
         now = int(time.time())  # get the now timestamp in abs seconds
 
         for reminder in reminders:
-            if reminder.scheduled_at  < now:
+            if reminder.event_start <= now:
+                self.db_service.cancel_reminder(reminder.id, now)
+                continue
+
+            if reminder.scheduled_at <= now:
                 try:
                     sent = await self.send_reminder(reminder)
                     if sent:
@@ -547,6 +560,7 @@ class ReminderCog(commands.Cog):
         
         if not(name_changed or url_changed or start_time_changed):
             logger.debug(f"No relevant changes for event {after.id}")
+            return
 
         updated_reminders = self.db_service.update_reminders_for_event(
             event_id=after.id,

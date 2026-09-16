@@ -353,7 +353,6 @@ class ReminderCog(commands.Cog):
                     discord.EventStatus.completed,
                     discord.EventStatus.cancelled,
                 )
-                and event.start_time.timestamp() > now
             )
         }
 

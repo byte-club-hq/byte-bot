@@ -2,22 +2,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 import sqlite3
-import logging
-import os
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
-USE_DEFAULT_REMINDER_RULES = bool(os.getenv("USE_DEFAULT_REMINDER_RULES", False))
-DEFAULT_REMINDER_CHANNEL = os.getenv("DEFAULT_REMINDER_CHANNEL")
-
-if not DEFAULT_REMINDER_CHANNEL:
-    try:
-        DEFAULT_REMINDER_CHANNEL = os.getenv("FEATURE_FORUM_CHANNEL_ID")
-    except Exception as e:
-        logger.error(f"FEATURE_FORUM_CHANNEL_ID is not set: {e}")
-        raise
-        
 @dataclass(frozen=True)
 class UserRecord:
     user_id: int

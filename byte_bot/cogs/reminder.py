@@ -10,16 +10,20 @@ from byte_bot.services.reminder_service import ReminderService, Reminder
 
 logger = logging.getLogger(__name__)
 
-REMINDER_CHECK_LOOP_TIME = int(os.getenv("REMINDER_CHECK_LOOP_TIME", 60))  # in seconds
-SYNC_REMINDER_LOOP_TIME = int(os.getenv("SYNC_REMINDER_LOOP_TIME", 30))  # in minutes
+def get_int_env(name: str, default: int) -> int:
+    value = os.getenv(name, "").strip()
+    return int(value) if value else default
+
+REMINDER_CHECK_LOOP_TIME = get_int_env("REMINDER_CHECK_LOOP_TIME", 60) # in seconds
+SYNC_REMINDER_LOOP_TIME = get_int_env("SYNC_REMINDER_LOOP_TIME", 30) # in minutes
 REMINDER_TIMES_BEFORE_EVENT = [
-    int(minutes) for minutes in os.getenv("REMINDER_TIMES_BEFORE_EVENT", "10,1440").split(",")
+    int(minutes) for minutes in os.getenv("REMINDER_TIMES_BEFORE_EVENT", "10,1440").strip().split(",")
 ]
 
 use_default_rules_env = os.getenv("USE_DEFAULT_REMINDER_RULES", "true").lower()
 USE_DEFAULT_REMINDER_RULES = use_default_rules_env in ("true", "1")
 
-default_channel = os.getenv("DEFAULT_REMINDER_CHANNEL")
+default_channel = os.getenv("DEFAULT_REMINDER_CHANNEL").strip()
 DEFAULT_REMINDER_CHANNEL = int(default_channel) if default_channel else None
 
 
@@ -506,7 +510,9 @@ class ReminderCog(commands.Cog):
             # Remove its reminder rules; this also cancels the associated reminders.
             self.db_service.remove_rules_for_event(before.id, now)
             return
-
+        
+        logger.debug(before)
+        # TODO: Remove this recurrence_rule part
         if before.recurrence_rule is not None:
             new_exceptions = [exception for exception in after.exceptions if exception not in before.exceptions]
 

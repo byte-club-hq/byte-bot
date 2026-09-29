@@ -23,7 +23,7 @@ REMINDER_TIMES_BEFORE_EVENT = [
 use_default_rules_env = os.getenv("USE_DEFAULT_REMINDER_RULES", "true").lower()
 USE_DEFAULT_REMINDER_RULES = use_default_rules_env in ("true", "1")
 
-default_channel = os.getenv("DEFAULT_REMINDER_CHANNEL").strip()
+default_channel = os.getenv("DEFAULT_REMINDER_CHANNEL", "").strip()
 DEFAULT_REMINDER_CHANNEL = int(default_channel) if default_channel else None
 
 
@@ -65,6 +65,17 @@ class ReminderCog(commands.Cog):
     def cog_unload(self):
         self.sync_reminders.cancel()
         self.check_reminders.cancel()
+
+    async def _get_scheduled_event(
+        self,
+        guild: discord.Guild,
+        event_id: str,
+    ) -> discord.ScheduledEvent | None:
+        try:
+            return await guild.fetch_scheduled_event(int(event_id))
+        except ValueError as e:
+            logger.warning(f"Invalid event id: {event_id}. {e}")
+            return None
 
     @reminder.command(name="list_events", description="List upcoming events")
     @app_commands.guild_only()
@@ -111,14 +122,8 @@ class ReminderCog(commands.Cog):
     @app_commands.guild_only()
     async def list_rules_by_event(self, interaction: discord.Interaction, event_id: str):
         await interaction.response.defer()
-        guild = interaction.guild
 
-        # Check if the event exists
-        try:
-            event = await guild.fetch_scheduled_event(int(event_id))
-        except Exception as e:
-            logger.warning(f"Failed to fetch event : {event_id}: {e}")
-            event = None
+        event = await self._get_scheduled_event(interaction.guild, event_id)
 
         if not event:
             await interaction.followup.send(f"Failed to get event with id: {event_id} does not exists.")
@@ -163,19 +168,16 @@ class ReminderCog(commands.Cog):
         minutes_before: int,
         text: str,
     ):
-
         await interaction.response.defer()
-        guild = interaction.guild
 
-        # Check if the event exists
-        try:
-            event = await guild.fetch_scheduled_event(int(event_id))
-        except Exception as e:
-            logger.warning(f"Failed to fetch event : {event_id}: {e}")
-            event = None
+        event = await self._get_scheduled_event(interaction.guild, event_id)
 
         if not event:
             await interaction.followup.send(f"Failed to get event with id: {event_id} does not exists.")
+            return
+
+        if minutes_before <= 0:
+            await interaction.followup.send("Minutes_befores must be an positive integer.")
             return
 
         new_rule = self.db_service.create_reminder_rule(int(event_id), int(channel.id), minutes_before, text)

@@ -237,14 +237,12 @@ class ReminderService:
                     """
                     UPDATE reminders
                     SET 
-                        sent_at = ?,
                         canceled_at = ?
                     WHERE id = ? 
                         AND sent_at IS NULL
                         AND canceled_at IS NULL
                     """,
                     (
-                        0,
                         timestamp,
                         reminder_id,
                     ),
@@ -260,14 +258,12 @@ class ReminderService:
                     """
                     UPDATE reminders
                     SET 
-                        sent_at = ?,
                         canceled_at = ?
                     WHERE sent_at IS NULL
                         AND canceled_at IS NULL
                         AND event_start <= ?
                     """,
                     (
-                        0,
                         timestamp,
                         timestamp,
                     ),
@@ -283,12 +279,11 @@ class ReminderService:
                     """
                     UPDATE reminders
                     SET
-                        sent_at = ?,
                         canceled_at = ?
                     WHERE rule_id = ?
                         AND sent_at IS NULL
                     """,
-                    (0, timestamp, rule_id),
+                    (timestamp, rule_id),
                 )
 
         return cursor.rowcount > 0
@@ -303,12 +298,11 @@ class ReminderService:
                     """
                     UPDATE reminders
                     SET
-                        sent_at = ?,
                         canceled_at = ?
                     WHERE event_id = ?
                         AND sent_at IS NULL
                     """,
-                    (0, timestamp, event_id),
+                    (timestamp, event_id),
                 )
 
         return cursor.rowcount > 0

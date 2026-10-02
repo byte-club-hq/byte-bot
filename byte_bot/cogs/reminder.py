@@ -66,6 +66,20 @@ class ReminderCog(commands.Cog):
         self.sync_reminders.cancel()
         self.check_reminders.cancel()
 
+    async def cog_app_command_error(
+        self,
+        interaction: discord.Interaction,
+        error: discord.app_commands.AppCommandError,
+    ):
+        if isinstance(error, discord.app_commands.MissingPermissions):
+            await interaction.response.send_message(
+                "❌ You need Administrator permissions to use this command.",
+                ephemeral=True,
+            )
+            return
+
+        raise error
+
     async def _get_scheduled_event(
         self,
         guild: discord.Guild,
@@ -156,10 +170,11 @@ class ReminderCog(commands.Cog):
             )
 
         await interaction.followup.send(embed=embed)
+    
 
     @reminder.command(name="create_rule", description="Create a new rule reminder for event.")
     @app_commands.guild_only()
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def create_rule(
         self,
         interaction: discord.Interaction,
@@ -209,7 +224,7 @@ class ReminderCog(commands.Cog):
 
     @reminder.command(name="remove_rule", description="Remove a rule reminder.")
     @app_commands.guild_only()
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def remove_rule(self, interaction: discord.Interaction, rule_id: int):
         logger.debug(f"Removing rule: {rule_id}")
         await interaction.response.defer()

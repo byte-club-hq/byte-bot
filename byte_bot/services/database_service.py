@@ -71,6 +71,39 @@ class DatabaseService:
                     """
                 )
 
+                # create reminder_rules table if not exists
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS reminders_rules (
+                        id INTEGER PRIMARY KEY,
+                        event_id INTEGER NOT NULL,
+                        channel_id INTEGER NOT NULL,
+                        minutes_before INTEGER NOT NULL,
+                        text TEXT,
+                        UNIQUE (event_id, channel_id, minutes_before)
+                    )
+                    """
+                )
+
+                # Create reminders if not exists
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS reminders (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        event_id INTEGER NOT NULL,
+                        rule_id INTEGER NOT NULL,
+                        channel_id INTEGER NOT NULL,
+                        event_name TEXT NOT NULL,
+                        url TEXT,
+                        description TEXT,
+                        event_start INTEGER NOT NULL,
+                        scheduled_at INTEGER,
+                        sent_at INTEGER,
+                        canceled_at INTEGER
+                    )
+                    """
+                )
+
     def upsert_user(
         self,
         *,

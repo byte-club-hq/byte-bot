@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 INTENTS = discord.Intents.default()
 INTENTS.members = True
 INTENTS.message_content = True
+INTENTS.guild_scheduled_events = True
 
 def health_check() -> dict[str, str]:
     """Return a minimal app health payload for unit testing"""

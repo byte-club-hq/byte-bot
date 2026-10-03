@@ -361,9 +361,38 @@ class ReminderCog(commands.Cog):
     async def sync_reminders(self):
         # Getting events
         now = int(time.time())
-        guild = self.bot.get_channel(self.bot.feature_forum_channel_id).guild
-        events = await guild.fetch_scheduled_events(with_counts=False)
+        channel = self.bot.get_channel(self.bot.feature_forum_channel_id)
+        
+        if channel is None:
+            logger.error(
+                "Feature forum channel %s was not found",
+                self.bot.feature_forum_channel_id,
+            )
+            return
+        
+        guild = channel.guild
 
+        try:
+            events = await guild.fetch_scheduled_events(
+                with_counts=False
+            )
+
+        except discord.DiscordServerError as e:
+            logger.warning(
+                "Discord server error while fetching scheduled events: %s",
+                e,
+            )
+            return
+
+        except discord.HTTPException as e:
+            logger.warning(
+                "Discord HTTP error while fetching scheduled events: "
+                "status=%s error=%s",
+                e.status,
+                e,
+            )
+            return
+        
         # event_by_id stores {event_id: event}
         events_by_id = {
             int(event.id): event
@@ -463,7 +492,7 @@ class ReminderCog(commands.Cog):
         # Calculate the minutes before de event
         seconds_remaining = max(0, reminder.event_start - int(time.time()))
 
-        left_minutes = seconds_remaining // 60
+        left_minutes = round(seconds_remaining / 60)
         time_text = format_reminder_time(left_minutes)
 
         embed = discord.Embed(
@@ -495,18 +524,17 @@ class ReminderCog(commands.Cog):
                 continue
 
             if reminder.scheduled_at <= now:
-                try:
-                    sent = await self.send_reminder(reminder)
-                    if sent:
-                        self.db_service.mark_reminder_sent(
-                            reminder.id,
-                            now,
-                        )
-                        logger.debug(
-                            f"Reminder has been sent: {reminder.id} | Event: {reminder.event_name} | Channel id {reminder.channel_id}"
-                        )
-                except Exception as e:
-                    logger.exception(f"Failed to send reminder {reminder.id}: {e}")
+                sent = await self.send_reminder(reminder)
+                if sent:
+                    self.db_service.mark_reminder_sent(
+                        reminder.id,
+                        now,
+                    )
+                    logger.debug(
+                        f"Reminder has been sent: {reminder.id} | Event: {reminder.event_name} | Channel id {reminder.channel_id}"
+                    )
+                else:
+                    logger.error(f"Failed to send reminder {reminder.id}")
 
     @check_reminders.before_loop
     async def before_check_reminders(self):
@@ -528,27 +556,6 @@ class ReminderCog(commands.Cog):
             self.db_service.remove_rules_for_event(before.id, now)
             return
         
-        logger.debug(before)
-        # TODO: Remove this recurrence_rule part
-        if before.recurrence_rule is not None:
-            new_exceptions = [exception for exception in after.exceptions if exception not in before.exceptions]
-
-            for exception in new_exceptions:
-                logger.debug(f"New exception for event {after.id}: {exception}")
-
-                if exception.is_canceled:
-                    # The condition above ensure that just a next event of a weekly series
-                    # was canceled so it will cancel reminders and not remove rules
-                    self.db_service.cancel_reminders_for_event(
-                        after.id,
-                        now,
-                    )
-                    return
-
-        if before.status != discord.EventStatus.completed and after.status == discord.EventStatus.completed:
-            self.db_service.cancel_reminders_for_event(before.id, now)
-            return
-
         name_changed = before.name != after.name
         url_changed = before.url != after.url
         start_time_changed = before.start_time != after.start_time
@@ -589,20 +596,15 @@ class ReminderCog(commands.Cog):
         self,
         event: discord.ScheduledEvent,
     ):
-        try:
-            logger.debug(f"Scheduled event '{event.name}' created, event id: {event.id}")
+        logger.debug(f"Scheduled event '{event.name}' created, event id: {event.id}")
 
-            if USE_DEFAULT_REMINDER_RULES:
-                new_rules = self.create_default_rules_reminders(event)
+        if USE_DEFAULT_REMINDER_RULES:
+            new_rules = self.create_default_rules_reminders(event)
 
-                for rule in new_rules:
-                    self.create_reminder(rule, event)
+            for rule in new_rules:
+                self.create_reminder(rule, event)
 
-                logger.debug(f"Default reminders were created for '{event.name}' | event id: {event.id}")
-
-        except Exception as e:
-            logger.error(f"An error ocurred during reminder creation for event {event.id}: {event.name} | {e}")
-
+            logger.debug(f"Default reminders were created for '{event.name}' | event id: {event.id}")
 
 async def setup(bot: ByteBot):
     await bot.add_cog(ReminderCog(bot))

@@ -233,24 +233,6 @@ async def test_event_update_removes_rules_when_event_is_cancelled(cog):
 
 
 @pytest.mark.asyncio
-async def test_event_update_cancels_reminders_when_event_is_completed(cog):
-    before = make_event(
-        status=discord.EventStatus.scheduled,
-    )
-    after = make_event(
-        status=discord.EventStatus.completed,
-    )
-
-    with patch("byte_bot.cogs.reminder.time.time", return_value=500):
-        await cog.on_scheduled_event_update(before, after)
-
-    cog.db_service.cancel_reminders_for_event.assert_called_once_with(
-        before.id,
-        500,
-    )
-
-
-@pytest.mark.asyncio
 async def test_event_update_does_nothing_when_nothing_changed(cog):
     start_time = datetime.now(timezone.utc) + timedelta(hours=2)
 

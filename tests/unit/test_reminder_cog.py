@@ -37,8 +37,6 @@ def make_event(
         start_time=start_time,
         status=status,
         description="Event description",
-        recurrence_rule=None,
-        exceptions=[],
     )
 
 

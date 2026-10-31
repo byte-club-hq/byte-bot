@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 import os
-
+import json
 from byte_bot.byte_bot import ByteBot
 from byte_bot.services.reminder_service import ReminderService, Reminder
 
@@ -26,6 +26,10 @@ USE_DEFAULT_REMINDER_RULES = use_default_rules_env in ("true", "1")
 default_channel = os.getenv("DEFAULT_REMINDER_CHANNEL", "").strip()
 DEFAULT_REMINDER_CHANNEL = int(default_channel) if default_channel else None
 
+DISCORD_EPOCH = 1420070400000  # Used to identity an event from recurrence event series
+
+def snowflake_to_timestamp(snowflake):
+    return ((int(snowflake) >> 22) + DISCORD_EPOCH)//1000
 
 def format_reminder_time(minutes: int) -> str:
     """Format the time to show in discord message."""
@@ -372,6 +376,10 @@ class ReminderCog(commands.Cog):
         
         guild = channel.guild
 
+        #data = await self.bot.http.get_scheduled_events(guild_id=guild.id, with_user_count=False)
+
+        #logger.debug(data)
+
         try:
             events = await guild.fetch_scheduled_events(
                 with_counts=False
@@ -489,6 +497,17 @@ class ReminderCog(commands.Cog):
             self.db_service.cancel_reminder(reminder.id, int(time.time()))
             return False
 
+        data = await self.bot.http.get_scheduled_event(
+            channel.guild.id,
+            reminder.event_id,
+            with_user_count=False,
+        )
+        logger.debug(data)
+        logger.debug("---------------")
+        logger.debug(
+            "Raw event data:\n%s",
+            json.dumps(data, indent=2, default=str),
+        )
         # Calculate the minutes before de event
         seconds_remaining = max(0, reminder.event_start - int(time.time()))
 
@@ -524,6 +543,9 @@ class ReminderCog(commands.Cog):
                 continue
 
             if reminder.scheduled_at <= now:
+                # Check if the event is up
+                # Check that in the sync_reminder function
+
                 sent = await self.send_reminder(reminder)
                 if sent:
                     self.db_service.mark_reminder_sent(
@@ -547,6 +569,8 @@ class ReminderCog(commands.Cog):
         after: discord.ScheduledEvent,
     ):
         logger.debug(f"Scheduled event updated: {after.id} | {after.name}")
+
+        logger.debug("Using event listener update")
 
         now = int(time.time())
 

@@ -7,7 +7,8 @@ import os
 import json
 from byte_bot.byte_bot import ByteBot
 from byte_bot.services.reminder_service import ReminderService, Reminder
-
+from dataclasses import dataclass
+from datetime import datetime
 logger = logging.getLogger(__name__)
 
 def get_int_env(name: str, default: int) -> int:
@@ -44,6 +45,43 @@ def format_reminder_time(minutes: int) -> str:
 
     return f"{hours} hour{'s' if hours != 1 else ''} {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
 
+@dataclass
+class CustomEvent:
+    id: str | int
+    name: str
+    description: str
+    star_time: int # timestamp int(event.start_time.timestamp())
+    status: str # completed, cancelled
+    url: str
+
+def get_timestamp(time_str: str):
+    dt_object = datetime.fromisoformat(time_str)
+    return dt_object.timestamp()
+
+def get_formatted_events(raw_events):
+    events_lst = []
+    for raw_event in raw_events:
+        is_recurrent = raw_event.get("recurrence_rule")
+        start_time = get_timestamp.get("scheduled_start_time") ## Check if this is the correct start time
+        exceptions = raw_event.get("guild_scheduled_event_exceptions")
+
+        if is_recurrent and exceptions:
+            for exception in exceptions:
+                exception_id = exception.
+            # compare start time and check exceptions+
+            ...
+        event_id = raw_event.get("id")
+        guild_id = raw_event.get("guild_id")
+
+        event = CustomEvent(
+            id=event_id,
+            name=raw_event.get("name"),
+            description=raw_event.get("description"),
+            start_time=start_time,
+            status=raw_event.get("status"), # Check status 1,2,3,4 
+            url=f"https://discord.com/events/{guild_id}/{event_id}",
+        )
+        events_lst.append(event)
 
 class ReminderCog(commands.Cog):
     reminder = app_commands.Group(

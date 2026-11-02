@@ -29,6 +29,12 @@ DEFAULT_REMINDER_CHANNEL = int(default_channel) if default_channel else None
 
 DISCORD_EPOCH = 1420070400000  # Used to identity an event from recurrence event series
 
+# Discord event status
+CANCELED_EVENT = 4
+SCHEDULED_EVENT = 1
+COMPLETED_EVENT = 3
+ACTIVE_EVENT = 2
+
 def snowflake_to_timestamp(snowflake):
     return ((int(snowflake) >> 22) + DISCORD_EPOCH)//1000
 
@@ -50,8 +56,8 @@ class CustomEvent:
     id: str | int
     name: str
     description: str
-    star_time: int # timestamp int(event.start_time.timestamp())
-    status: str # completed, cancelled
+    start_time: int # timestamp int(event.start_time.timestamp())
+    status: int # completed, cancelled
     url: str
 
 def get_timestamp(time_str: str):
@@ -64,25 +70,19 @@ def get_formatted_events(raw_events):
         is_recurrent = raw_event.get("recurrence_rule")
         start_time = get_timestamp(raw_event.get("scheduled_start_time")) ## Check if this is the correct start time
         exceptions = raw_event.get("guild_scheduled_event_exceptions")
-        status = raw_event.get("status")
+        status = int(raw_event.get("status"))
         
         if is_recurrent and exceptions:
             for exception in exceptions:
-                exception_id = exception.event_exception_id
+                exception_id = exception["event_exception_id"]
                 timestamp = snowflake_to_timestamp(exception_id)
                 if timestamp == start_time:
                     is_canceled = exception["is_canceled"]
-                    status = 4 if is_canceled else status
+                    status = CANCELED_EVENT if is_canceled else status
                     start_time = get_timestamp(exception["scheduled_start_time"])
                     break
         
-            # compare start time and check exceptions+
-            # SCHEDULED 1
-            # ACTIVE 2
-            # COMPLETED 3
-            # CANCELED 4
-            ...
-        event_id = raw_event.get("id")
+        event_id = int(raw_event.get("id"))
         guild_id = raw_event.get("guild_id")
         
         event = CustomEvent(
@@ -386,7 +386,7 @@ class ReminderCog(commands.Cog):
             if event is None:
                 continue
 
-            actual_start_time = int(event.start_time.timestamp())
+            actual_start_time = int(event.start_time)
             url = event.url
             name = event.name
 
@@ -428,14 +428,14 @@ class ReminderCog(commands.Cog):
         
         guild = channel.guild
 
-        data = await self.bot.http.get_scheduled_events(guild_id=guild.id, with_user_count=False)
-
-        logger.debug(data)
-
         try:
-            events = await guild.fetch_scheduled_events(
-                with_counts=False
-            )
+            data = await self.bot.http.get_scheduled_events(guild_id=guild.id, with_user_count=False)
+            events = get_formatted_events(data)
+            #events = await guild.fetch_scheduled_events(
+            #    with_counts=False
+            #)
+            logger.debug("Events")
+            logger.debug(events)
 
         except discord.DiscordServerError as e:
             logger.warning(
@@ -459,10 +459,7 @@ class ReminderCog(commands.Cog):
             for event in events
             if (
                 event.status
-                not in (
-                    discord.EventStatus.completed,
-                    discord.EventStatus.cancelled,
-                )
+                not in ( CANCELED_EVENT, COMPLETED_EVENT)
             )
         }
 

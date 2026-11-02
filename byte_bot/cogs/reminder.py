@@ -67,7 +67,10 @@ def get_formatted_events(raw_events):
 
         if is_recurrent and exceptions:
             for exception in exceptions:
-                exception_id = exception.
+                exception_id = exception.event_exception_id
+                timestamp = snowflake_to_timestamp(exception_id)
+                if timestamp == start_time:
+                    ...
             # compare start time and check exceptions+
             ...
         event_id = raw_event.get("id")
@@ -414,9 +417,9 @@ class ReminderCog(commands.Cog):
         
         guild = channel.guild
 
-        #data = await self.bot.http.get_scheduled_events(guild_id=guild.id, with_user_count=False)
+        data = await self.bot.http.get_scheduled_events(guild_id=guild.id, with_user_count=False)
 
-        #logger.debug(data)
+        logger.debug(data)
 
         try:
             events = await guild.fetch_scheduled_events(

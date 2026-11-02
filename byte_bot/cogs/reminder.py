@@ -56,35 +56,46 @@ class CustomEvent:
 
 def get_timestamp(time_str: str):
     dt_object = datetime.fromisoformat(time_str)
-    return dt_object.timestamp()
+    return int(dt_object.timestamp())
 
 def get_formatted_events(raw_events):
     events_lst = []
     for raw_event in raw_events:
         is_recurrent = raw_event.get("recurrence_rule")
-        start_time = get_timestamp.get("scheduled_start_time") ## Check if this is the correct start time
+        start_time = get_timestamp(raw_event.get("scheduled_start_time")) ## Check if this is the correct start time
         exceptions = raw_event.get("guild_scheduled_event_exceptions")
-
+        status = raw_event.get("status")
+        
         if is_recurrent and exceptions:
             for exception in exceptions:
                 exception_id = exception.event_exception_id
                 timestamp = snowflake_to_timestamp(exception_id)
                 if timestamp == start_time:
-                    ...
+                    is_canceled = exception["is_canceled"]
+                    status = 4 if is_canceled else status
+                    start_time = get_timestamp(exception["scheduled_start_time"])
+                    break
+        
             # compare start time and check exceptions+
+            # SCHEDULED 1
+            # ACTIVE 2
+            # COMPLETED 3
+            # CANCELED 4
             ...
         event_id = raw_event.get("id")
         guild_id = raw_event.get("guild_id")
-
+        
         event = CustomEvent(
             id=event_id,
             name=raw_event.get("name"),
             description=raw_event.get("description"),
             start_time=start_time,
-            status=raw_event.get("status"), # Check status 1,2,3,4 
+            status=status, # Check status 1,2,3,4 
             url=f"https://discord.com/events/{guild_id}/{event_id}",
         )
         events_lst.append(event)
+
+    return events_lst
 
 class ReminderCog(commands.Cog):
     reminder = app_commands.Group(

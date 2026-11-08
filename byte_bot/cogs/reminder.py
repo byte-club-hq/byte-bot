@@ -81,7 +81,8 @@ def get_formatted_events(raw_events):
         start_time = get_timestamp(raw_event.get("scheduled_start_time")) ## Check if this is the correct start time
         exceptions = raw_event.get("guild_scheduled_event_exceptions")
         event_status = int(raw_event.get("status"))
-        
+        next_ocurrence_status = None
+
         if is_recurring and exceptions:
             for exception in exceptions:
                 exception_id = exception["event_exception_id"]
@@ -100,7 +101,7 @@ def get_formatted_events(raw_events):
             name=raw_event.get("name"),
             description=raw_event.get("description"),
             start_time=timestamp_to_datetime(start_time),
-            status=next_ocurrence_status, # Check status 1,2,3,4 
+            status=next_ocurrence_status if next_ocurrence_status else event_status, # Check status 1,2,3,4 
             url=f"https://discord.com/events/{guild_id}/{event_id}",
             is_recurring=is_recurring,
             is_cancelled=event_status==CANCELED_EVENT

@@ -4,11 +4,10 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 import os
-import json
 from byte_bot.byte_bot import ByteBot
 from byte_bot.services.reminder_service import ReminderService, Reminder
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 def get_int_env(name: str, default: int) -> int:
@@ -56,9 +55,19 @@ class CustomEvent:
     id: str | int
     name: str
     description: str
-    start_time: int # timestamp int(event.start_time.timestamp())
-    status: int # completed, cancelled
+    start_time: datetime # timestamp int(event.start_time.timestamp())
+    status: int # complete, cancelled
     url: str
+    is_recurring: bool
+    is_cancelled: bool
+
+def get_datetime(time_str: str) -> datetime:
+    return datetime.fromisoformat(
+        time_str.replace("Z", "+00:00")
+    )
+
+def timestamp_to_datetime(timestamp: int | float) -> datetime:
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc)
 
 def get_timestamp(time_str: str):
     dt_object = datetime.fromisoformat(time_str)
@@ -66,22 +75,23 @@ def get_timestamp(time_str: str):
 
 def get_formatted_events(raw_events):
     events_lst = []
+
     for raw_event in raw_events:
-        is_recurrent = raw_event.get("recurrence_rule")
+        is_recurring = bool(raw_event.get("recurrence_rule"))
         start_time = get_timestamp(raw_event.get("scheduled_start_time")) ## Check if this is the correct start time
         exceptions = raw_event.get("guild_scheduled_event_exceptions")
-        status = int(raw_event.get("status"))
+        event_status = int(raw_event.get("status"))
         
-        if is_recurrent and exceptions:
+        if is_recurring and exceptions:
             for exception in exceptions:
                 exception_id = exception["event_exception_id"]
                 timestamp = snowflake_to_timestamp(exception_id)
                 if timestamp == start_time:
                     is_canceled = exception["is_canceled"]
-                    status = CANCELED_EVENT if is_canceled else status
+                    next_ocurrence_status = CANCELED_EVENT if is_canceled else event_status
                     start_time = get_timestamp(exception["scheduled_start_time"])
                     break
-        
+
         event_id = int(raw_event.get("id"))
         guild_id = raw_event.get("guild_id")
         
@@ -89,9 +99,11 @@ def get_formatted_events(raw_events):
             id=event_id,
             name=raw_event.get("name"),
             description=raw_event.get("description"),
-            start_time=start_time,
-            status=status, # Check status 1,2,3,4 
+            start_time=timestamp_to_datetime(start_time),
+            status=next_ocurrence_status, # Check status 1,2,3,4 
             url=f"https://discord.com/events/{guild_id}/{event_id}",
+            is_recurring=is_recurring,
+            is_cancelled=event_status==CANCELED_EVENT
         )
         events_lst.append(event)
 
@@ -386,7 +398,7 @@ class ReminderCog(commands.Cog):
             if event is None:
                 continue
 
-            actual_start_time = int(event.start_time)
+            actual_start_time = int(event.start_time.timestamp())
             url = event.url
             name = event.name
 
@@ -430,10 +442,9 @@ class ReminderCog(commands.Cog):
 
         try:
             data = await self.bot.http.get_scheduled_events(guild_id=guild.id, with_user_count=False)
+            logger.debug("raw data")
+            logger.debug(data)
             events = get_formatted_events(data)
-            #events = await guild.fetch_scheduled_events(
-            #    with_counts=False
-            #)
             logger.debug("Events")
             logger.debug(events)
 
@@ -458,8 +469,8 @@ class ReminderCog(commands.Cog):
             int(event.id): event
             for event in events
             if (
-                event.status
-                not in ( CANCELED_EVENT, COMPLETED_EVENT)
+                not event.is_cancelled and
+                event.status != COMPLETED_EVENT
             )
         }
 
@@ -470,7 +481,7 @@ class ReminderCog(commands.Cog):
         rules_by_event = {}
 
         for rule in rules:
-            if rule.event_id not in rules_by_event:
+            if int(rule.event_id) not in rules_by_event:
                 rules_by_event[int(rule.event_id)] = []
             rules_by_event[int(rule.event_id)].append(rule)
 
@@ -546,17 +557,6 @@ class ReminderCog(commands.Cog):
             self.db_service.cancel_reminder(reminder.id, int(time.time()))
             return False
 
-        data = await self.bot.http.get_scheduled_event(
-            channel.guild.id,
-            reminder.event_id,
-            with_user_count=False,
-        )
-        logger.debug(data)
-        logger.debug("---------------")
-        logger.debug(
-            "Raw event data:\n%s",
-            json.dumps(data, indent=2, default=str),
-        )
         # Calculate the minutes before de event
         seconds_remaining = max(0, reminder.event_start - int(time.time()))
 

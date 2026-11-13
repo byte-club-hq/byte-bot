@@ -1,4 +1,5 @@
 import logging
+import math
 import time
 import discord
 from discord import app_commands
@@ -14,11 +15,29 @@ def get_int_env(name: str, default: int) -> int:
     value = os.getenv(name, "").strip()
     return int(value) if value else default
 
+def get_int_list_env(name: str, default: list[int]) -> list[int]:
+    value = os.getenv(name, "").strip()
+
+    if not value:
+        return default
+
+    try:
+        values = [int(item.strip()) for item in value.split(",")]
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid integer list in environment variable {name}"
+        ) from exc
+
+    if any(item <= 0 for item in values):
+        raise ValueError(
+            f"Values in {name} must be positive integers"
+        )
+
+    return values
+
 REMINDER_CHECK_LOOP_TIME = get_int_env("REMINDER_CHECK_LOOP_TIME", 60) # in seconds
 SYNC_REMINDER_LOOP_TIME = get_int_env("SYNC_REMINDER_LOOP_TIME", 30) # in minutes
-REMINDER_TIMES_BEFORE_EVENT = [
-    int(minutes) for minutes in os.getenv("REMINDER_TIMES_BEFORE_EVENT", "10,1440").strip().split(",")
-]
+REMINDER_TIMES_BEFORE_EVENT = get_int_list_env("REMINDER_TIMES_BEFORE_EVENT", [10, 1440])
 
 use_default_rules_env = os.getenv("USE_DEFAULT_REMINDER_RULES", "true").lower()
 USE_DEFAULT_REMINDER_RULES = use_default_rules_env in ("true", "1")
@@ -26,7 +45,7 @@ USE_DEFAULT_REMINDER_RULES = use_default_rules_env in ("true", "1")
 default_channel = os.getenv("DEFAULT_REMINDER_CHANNEL", "").strip()
 DEFAULT_REMINDER_CHANNEL = int(default_channel) if default_channel else None
 
-DISCORD_EPOCH = 1420070400000  # Used to identity an event from recurrence event series
+DISCORD_EPOCH = 1420070400000  # Used to identify an event from recurrence event series
 
 # Discord event status
 CANCELED_EVENT = 4
@@ -66,7 +85,10 @@ def get_datetime(time_str: str) -> datetime:
         time_str.replace("Z", "+00:00")
     )
 
-def timestamp_to_datetime(timestamp: int | float) -> datetime:
+def timestamp_to_datetime(timestamp: int | float | None) -> datetime | None:
+    if not timestamp:
+        return None
+    
     return datetime.fromtimestamp(timestamp, tz=timezone.utc)
 
 def get_timestamp(time_str: str):
@@ -74,33 +96,52 @@ def get_timestamp(time_str: str):
     return int(dt_object.timestamp())
 
 def get_formatted_events(raw_events):
+    
+    if not raw_events:
+        return []
+    
     events_lst = []
 
     for raw_event in raw_events:
         is_recurring = bool(raw_event.get("recurrence_rule"))
-        start_time = get_timestamp(raw_event.get("scheduled_start_time")) ## Check if this is the correct start time
+        start_time = raw_event.get("scheduled_start_time")
+        timestamp_start_time = get_timestamp(raw_event.get("scheduled_start_time")) ## Check if this is the correct start time
         exceptions = raw_event.get("guild_scheduled_event_exceptions")
         event_status = int(raw_event.get("status"))
         next_ocurrence_status = None
+        event_id = int(raw_event.get("id"))
+        guild_id = raw_event.get("guild_id")
+        
+        if not start_time:
+            event = CustomEvent(
+                        id=event_id,
+                        name=raw_event.get("name"),
+                        description=raw_event.get("description"),
+                        start_time=None,
+                        status=CANCELED_EVENT, # Check status 1,2,3,4 
+                        url=f"https://discord.com/events/{guild_id}/{event_id}",
+                        is_recurring=is_recurring,
+                        is_cancelled=True
+                    )
+            events_lst.append(event)
+            continue
 
         if is_recurring and exceptions:
             for exception in exceptions:
                 exception_id = exception["event_exception_id"]
                 timestamp = snowflake_to_timestamp(exception_id)
-                if timestamp == start_time:
+                if timestamp == timestamp_start_time:
                     is_canceled = exception["is_canceled"]
                     next_ocurrence_status = CANCELED_EVENT if is_canceled else event_status
-                    start_time = get_timestamp(exception["scheduled_start_time"])
+                    next_ocurrence_start_time = exception.get("scheduled_start_time")
+                    timestamp_start_time = get_timestamp(next_ocurrence_start_time) if next_ocurrence_start_time else None
                     break
-
-        event_id = int(raw_event.get("id"))
-        guild_id = raw_event.get("guild_id")
         
         event = CustomEvent(
             id=event_id,
             name=raw_event.get("name"),
             description=raw_event.get("description"),
-            start_time=timestamp_to_datetime(start_time),
+            start_time=timestamp_to_datetime(timestamp_start_time),
             status=next_ocurrence_status if next_ocurrence_status else event_status, # Check status 1,2,3,4 
             url=f"https://discord.com/events/{guild_id}/{event_id}",
             is_recurring=is_recurring,
@@ -545,6 +586,33 @@ class ReminderCog(commands.Cog):
     async def send_reminder(self, reminder: Reminder) -> bool:
         try:
             channel = await self.bot.fetch_channel(reminder.channel_id)
+            if not isinstance(channel, discord.TextChannel):
+                logger.error(f"Reminder channel {reminder.channel_id} is not a TextChannel")
+                self.db_service.cancel_reminder(reminder.id, int(time.time()))
+                return False
+    
+            # Calculate the minutes before de event
+            seconds_remaining = max(0, reminder.event_start - int(time.time()))
+    
+            left_minutes = math.ceil(seconds_remaining / 60)
+            time_text = format_reminder_time(left_minutes)
+    
+            embed = discord.Embed(
+                title="🔔 Event reminder",
+                description=(
+                    f"**{reminder.event_name}**\n\n"
+                    f"{(reminder.description + '\n\n') if reminder.description else ''}"
+                    f"⏰ Starts in **{time_text}**.\n\n"
+                    f"<t:{reminder.event_start}:F>\n\n"
+                ),
+                color=discord.Color.blurple(),
+            )
+    
+            embed.add_field(name="🔗 Event url", value=reminder.url)
+    
+            await channel.send(embed=embed)
+            return True
+
         except discord.NotFound:
             logger.error(f"Reminder channel {reminder.channel_id} was not found")
             self.db_service.cancel_reminder(reminder.id, int(time.time()))
@@ -553,33 +621,9 @@ class ReminderCog(commands.Cog):
             logger.error(f"Failed to fetch reminder channel {reminder.channel_id}: {e}")
             return False
 
-        if not isinstance(channel, discord.TextChannel):
-            logger.error(f"Reminder channel {reminder.channel_id} is not a TextChannel")
-            self.db_service.cancel_reminder(reminder.id, int(time.time()))
-            return False
+        
 
-        # Calculate the minutes before de event
-        seconds_remaining = max(0, reminder.event_start - int(time.time()))
-
-        left_minutes = round(seconds_remaining / 60)
-        time_text = format_reminder_time(left_minutes)
-
-        embed = discord.Embed(
-            title="🔔 Event reminder",
-            description=(
-                f"**{reminder.event_name}**\n\n"
-                f"{(reminder.description + '\n\n') if reminder.description else ''}"
-                f"⏰ Starts in **{time_text}**.\n\n"
-                f"<t:{reminder.event_start}:F>\n\n"
-            ),
-            color=discord.Color.blurple(),
-        )
-
-        embed.add_field(name="🔗 Event url", value=reminder.url)
-
-        await channel.send(embed=embed)
-
-        return True
+        
 
     @tasks.loop(seconds=REMINDER_CHECK_LOOP_TIME)
     async def check_reminders(self):

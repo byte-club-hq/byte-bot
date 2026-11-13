@@ -5,8 +5,20 @@ import time
 import discord
 import pytest
 
-from byte_bot.cogs.reminder import ReminderCog
+from byte_bot.cogs.reminder import ReminderCog, snowflake_to_timestamp
 
+from byte_bot.cogs.reminder import (
+    get_formatted_events,
+    CANCELED_EVENT,
+    SCHEDULED_EVENT,
+)
+
+def datetime_to_snowflake(dt: datetime) -> str:
+    """Generate a Discord snowflake for a given UTC datetime."""
+    discord_epoch = 1420070400000
+    timestamp_ms = int(dt.timestamp() * 1000)
+
+    return str((timestamp_ms - discord_epoch) << 22)
 
 @pytest.fixture
 def cog():
@@ -281,3 +293,146 @@ async def test_event_update_updates_reminders_when_event_changes(cog):
         url="https://example.com",
         start_time=int(start_time.timestamp()),
     )
+
+
+@pytest.fixture
+def recurring_event():
+    original_start = "2026-11-16T18:00:00+00:00"
+
+    return {
+        "id": "1444045695198957619",
+        "guild_id": "123456789",
+        "name": "Weekly meeting",
+        "description": "Weekly team meeting",
+        "scheduled_start_time": original_start,
+        "status": SCHEDULED_EVENT,
+        "recurrence_rule": {
+            "start": original_start,
+            "frequency": 2,
+            "interval": 1,
+        },
+        "guild_scheduled_event_exceptions": [],
+    }
+
+
+def test_cancelled_recurring_event_occurrence(recurring_event):
+    """A cancelled occurrence should be marked as cancelled. 
+    Only for the cancelled event. Not cancelling the whole recurrent event"""
+
+    recurring_event["guild_scheduled_event_exceptions"] = [
+        {
+            "event_exception_id": str(
+                # Snowflake corresponding to the original occurrence
+                1449128676556800000
+            ),
+            "scheduled_start_time": None,
+            "scheduled_end_time": None,
+            "is_canceled": True,
+        }
+    ]
+
+    recurring_event["scheduled_start_time"] = (
+        "2026-11-16T18:00:00+00:00"
+    )
+
+    exception_id = str(
+        (int(recurring_event["scheduled_start_time"].replace(
+            "-", ""
+        )[:0] or 0))
+    ) if False else None
+
+    # The exception must identify the original occurrence.
+    # We construct the snowflake from its Unix timestamp.
+
+    timestamp = int(
+        datetime.fromisoformat(
+            recurring_event["scheduled_start_time"]
+        ).timestamp()
+    )
+
+    exception_id = str(
+        ((timestamp * 1000 - 1420070400000) << 22)
+    )
+
+    recurring_event["guild_scheduled_event_exceptions"][0][
+        "event_exception_id"
+    ] = exception_id
+
+    event = get_formatted_events([recurring_event])[0]
+
+    assert event.is_recurring is True
+    assert event.status == CANCELED_EVENT
+    assert event.is_cancelled is False
+
+
+def test_cancelled_recurring_event_occurrence_all(recurring_event):
+    """A cancelled event should be marked as cancelled."""
+
+    recurring_event["status"] = CANCELED_EVENT
+
+    event = get_formatted_events([recurring_event])[0]
+
+    assert event.is_recurring is True
+    assert event.status == CANCELED_EVENT
+    assert event.is_cancelled is True
+
+def test_recurring_event_occurrence_start_time_changed(recurring_event):
+    """A modified occurrence should use its new scheduled start time."""
+
+    original_start = int(
+        datetime.fromisoformat(
+            recurring_event["scheduled_start_time"]
+        ).timestamp()
+    )
+
+    new_start = "2026-11-16T20:00:00+00:00"
+
+    exception_id = str(
+        ((original_start * 1000 - 1420070400000) << 22)
+    )
+
+    recurring_event["guild_scheduled_event_exceptions"] = [
+        {
+            "event_exception_id": exception_id,
+            "scheduled_start_time": new_start,
+            "scheduled_end_time": "2026-11-16T21:00:00+00:00",
+            "is_canceled": False,
+        }
+    ]
+
+    event = get_formatted_events([recurring_event])[0]
+
+    expected_start = datetime.fromisoformat(new_start)
+
+    assert event.is_recurring is True
+    assert event.start_time == expected_start
+    assert event.status == SCHEDULED_EVENT
+    assert event.is_cancelled is False
+
+
+def test_unrelated_exception_does_not_modify_event(recurring_event):
+
+    original_start = datetime.fromisoformat(
+        recurring_event["scheduled_start_time"]
+    )
+
+    unrelated_start = datetime(
+        2026, 11, 23, 18, 0, tzinfo=timezone.utc
+    )
+
+    recurring_event["guild_scheduled_event_exceptions"] = [
+        {
+            "event_exception_id": datetime_to_snowflake(
+                unrelated_start
+            ),
+            "scheduled_start_time": None,
+            "scheduled_end_time": None,
+            "is_canceled": True,
+        }
+    ]
+
+    event = get_formatted_events([recurring_event])[0]
+
+    assert event.start_time == original_start
+    assert event.status == SCHEDULED_EVENT
+    assert event.is_cancelled is False
